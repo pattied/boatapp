@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { setJobStatus, updateJob } from "../../actions";
+import { deleteJob, setJobStatus, updateJob } from "../../actions";
 import CopyButton from "@/components/CopyButton";
-import { Badge, JobStatusBadge, Notice, PageHead, Select, Submit } from "@/components/ui";
+import { Badge, DeleteForm, JobStatusBadge, Notice, PageHead, Select, Submit } from "@/components/ui";
 import { fmtDateTime, fmtDay } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
@@ -152,6 +152,13 @@ export default async function JobDetail({ params, searchParams }: Props) {
           </ul>
         </section>
       )}
+      <section className="stack">
+        {job.plan_id ? (
+          <p className="muted small">This visit comes from a recurring plan, so it can be cancelled but not deleted. To stop future visits, end the plan on the customer page.</p>
+        ) : (
+          <details className="danger-zone"><summary>Delete this visit</summary><DeleteForm action={deleteJob} id={id} back={back} label="Delete visit" warning="Removes this visit and its photos. The customer link stops working." /></details>
+        )}
+      </section>
     </>
   );
 }

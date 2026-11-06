@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { addDock, addGate, deleteDock, deleteGate, updateDock, updateGate, updateMarina } from "../../actions";
-import { Field, Notice, PageHead, Submit } from "@/components/ui";
+import { addDock, addGate, deleteDock, deleteGate, updateDock, updateGate, updateMarina, deleteMarina } from "../../actions";
+import { DeleteForm, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { fmtDateTime } from "@/lib/dates";
 import { one, q } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
@@ -120,6 +120,7 @@ export default async function MarinaDetail({ params, searchParams }: Props) {
         <label className="field wide"><span>Notes</span><textarea name="notes" defaultValue={m.notes} rows={3} /></label>
         <div className="wide"><Submit>Save marina</Submit></div>
       </form>
+      <details className="danger-zone"><summary>Delete this marina</summary><DeleteForm action={deleteMarina} id={id} back={back} label="Delete marina" warning="Removes the marina with its gates and docks. Only possible when no boats are at this marina." /></details>
     </>
   );
 }

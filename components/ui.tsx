@@ -156,3 +156,24 @@ export function Submit({ children, tone = "primary", name, value, formAction }: 
     </button>
   );
 }
+
+// Permanent delete. The checkbox must be ticked; the server checks it too.
+export function DeleteForm({ action, id, back, label, warning }: {
+  action: (fd: FormData) => void | Promise<void>;
+  id: string;
+  back: string;
+  label: string;
+  warning?: string;
+}) {
+  return (
+    <form action={action} className="delete-form">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="back" value={back} />
+      {warning && <p className="muted small">{warning}</p>}
+      <label className="check small">
+        <input type="checkbox" name="confirm" required /> <span>Yes, delete permanently</span>
+      </label>
+      <button className="btn danger small-btn" type="submit">{label}</button>
+    </form>
+  );
+}

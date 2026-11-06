@@ -8,6 +8,7 @@ import { field, flag } from "@/lib/http";
 import { isUuid, newPublicId } from "@/lib/ids";
 import { generateJobs, pauseBoat, regeneratePlan, resumeBoat } from "@/lib/schedule";
 import { requireManager } from "@/lib/session";
+import { deleteFiles } from "@/lib/storage";
 import { berthProblem } from "@/lib/repo";
 
 const ACTOR = "manager";
@@ -792,4 +793,109 @@ export async function declineRequest(fd: FormData) {
   ]);
   await audit(q, ACTOR, "decline", "request", id);
   done(fd, "Request declined.");
+}
+
+// ---------- Permanent deletes ----------
+// Each delete form carries a "confirm" checkbox; nothing is removed without it.
+
+function confirmed(fd: FormData) {
+  if (!flag(fd, "confirm")) fail(fd, "Tick “Yes, delete permanently” to confirm.");
+}
+
+// Removes stored photo files after their rows are gone. A storage error never blocks the delete.
+async function removePhotoFiles(pathnames: string[]) {
+  await deleteFiles(pathnames).catch(() => {});
+}
+
+export async function deleteCustomer(fd: FormData) {
+  await requireManager();
+  confirmed(fd);
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Customer not found.");
+  const c = await one<{ name: string }>("select name from customers where id = $1", [id]);
+  if (!c) fail(fd, "Customer not found.");
+  const files = await q<{ pathname: string }>(
+    "select p.pathname from photos p join jobs j on j.id = p.job_id join boats b on b.id = j.boat_id where b.customer_id = $1",
+    [id],
+  );
+  await tx(async (t) => {
+    await t("delete from customers where id = $1", [id]);
+    await audit(t, ACTOR, "delete", "customer", id, { name: c.name, photos: files.length });
+  });
+  await removePhotoFiles(files.map((f) => f.pathname));
+  redirect(`/manager/customers?ok=${encodeURIComponent(`${c.name} deleted, with their boats, visits and photos.`)}`);
+}
+
+export async function deleteBoat(fd: FormData) {
+  await requireManager();
+  confirmed(fd);
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Boat not found.");
+  const b = await one<{ name: string }>("select name from boats where id = $1", [id]);
+  if (!b) fail(fd, "Boat not found.");
+  const files = await q<{ pathname: string }>(
+    "select p.pathname from photos p join jobs j on j.id = p.job_id where j.boat_id = $1",
+    [id],
+  );
+  await tx(async (t) => {
+    await t("delete from boats where id = $1", [id]);
+    await audit(t, ACTOR, "delete", "boat", id, { name: b.name, photos: files.length });
+  });
+  await removePhotoFiles(files.map((f) => f.pathname));
+  done(fd, `${b.name} deleted, with its plans, visits and photos.`);
+}
+
+export async function deleteJob(fd: FormData) {
+  await requireManager();
+  confirmed(fd);
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Visit not found.");
+  const j = await one<{ plan_id: string | null; boat_name: string; scheduled_date: string; customer_id: string }>(
+    `select j.plan_id, b.name as boat_name, j.scheduled_date, b.customer_id
+     from jobs j join boats b on b.id = j.boat_id where j.id = $1`,
+    [id],
+  );
+  if (!j) fail(fd, "Visit not found.");
+  // A recurring visit would be scheduled again automatically, so it is cancelled instead of deleted.
+  if (j.plan_id) fail(fd, "This visit comes from a recurring plan. Cancel it, or end the plan on the customer page.");
+  const files = await q<{ pathname: string }>("select pathname from photos where job_id = $1", [id]);
+  await tx(async (t) => {
+    await t("update requests set job_id = null where job_id = $1", [id]);
+    await t("delete from jobs where id = $1", [id]);
+    await audit(t, ACTOR, "delete", "job", id, { boat: j.boat_name, date: j.scheduled_date, photos: files.length });
+  });
+  await removePhotoFiles(files.map((f) => f.pathname));
+  redirect(`/manager/customers/${j.customer_id}?ok=${encodeURIComponent(`Visit for ${j.boat_name} deleted.`)}`);
+}
+
+export async function deleteMarina(fd: FormData) {
+  await requireManager();
+  confirmed(fd);
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Marina not found.");
+  const n = await one<{ n: number }>("select count(*)::int as n from boats where marina_id = $1", [id]);
+  if ((n?.n ?? 0) > 0) fail(fd, `${n!.n} boat(s) are at this marina. Move or delete them first.`);
+  const m = await one<{ name: string }>("delete from marinas where id = $1 returning name", [id]);
+  await audit(q, ACTOR, "delete", "marina", id, { name: m?.name });
+  redirect(`/manager/marinas?ok=${encodeURIComponent(`${m?.name ?? "Marina"} deleted.`)}`);
+}
+
+export async function deleteCrew(fd: FormData) {
+  await requireManager();
+  confirmed(fd);
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Crew not found.");
+  const c = await one<{ name: string }>("delete from crews where id = $1 returning name", [id]);
+  await audit(q, ACTOR, "delete", "crew", id, { name: c?.name });
+  done(fd, `${c?.name ?? "Crew"} deleted. Its visits and plans are now unassigned.`);
+}
+
+export async function deleteTechnician(fd: FormData) {
+  await requireManager();
+  confirmed(fd);
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Technician not found.");
+  const t = await one<{ name: string }>("delete from technicians where id = $1 returning name", [id]);
+  await audit(q, ACTOR, "delete", "technician", id, { name: t?.name });
+  done(fd, `${t?.name ?? "Technician"} deleted. They are signed out on their next sync.`);
 }

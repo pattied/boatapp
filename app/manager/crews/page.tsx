@@ -1,5 +1,5 @@
-import { createCrew, createTechnician, updateCrew, updateTechnician } from "../actions";
-import { Field, Notice, PageHead, Submit } from "@/components/ui";
+import { createCrew, createTechnician, deleteCrew, deleteTechnician, updateCrew, updateTechnician } from "../actions";
+import { DeleteForm, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { addDays, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 
@@ -28,7 +28,8 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
       <section className="card stack">
         <h2>Crews</h2>
         {crews.map((c) => (
-          <form key={c.id} action={updateCrew} className="row wrap">
+          <div key={c.id} className="stack tight">
+          <form action={updateCrew} className="row wrap">
             <input type="hidden" name="id" value={c.id} />
             <input type="hidden" name="back" value={back} />
             <Field label="Crew" name="name" defaultValue={c.name} />
@@ -36,6 +37,8 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
             <span className="muted small">{c.today_jobs} today · {c.week_jobs} this week · {techs.filter((t) => t.crew_id === c.id && t.active).map((t) => t.name).join(", ") || "no technicians"}</span>
             <Submit tone="plain">Save</Submit>
           </form>
+          <details className="danger-zone"><summary>Delete crew</summary><DeleteForm action={deleteCrew} id={c.id} back={back} label={`Delete ${c.name}`} warning="Its visits and plans become unassigned and appear on Needs attention. Untick Active instead to keep its history." /></details>
+          </div>
         ))}
         <form action={createCrew} className="row wrap">
           <input type="hidden" name="back" value={back} />
@@ -48,7 +51,8 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
         <h2>Technicians</h2>
         <p className="muted small">Technicians sign in with the technician passcode and pick their name. They see their crew&apos;s jobs.</p>
         {techs.map((t) => (
-          <form key={t.id} action={updateTechnician} className="row wrap">
+          <div key={t.id} className="stack tight">
+          <form action={updateTechnician} className="row wrap">
             <input type="hidden" name="id" value={t.id} />
             <input type="hidden" name="back" value={back} />
             <Field label="Name" name="name" defaultValue={t.name} />
@@ -63,6 +67,8 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
             <span className="muted small">{t.last_seen ? `Last activity ${new Date(t.last_seen).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "No activity yet"}</span>
             <Submit tone="plain">Save</Submit>
           </form>
+          <details className="danger-zone"><summary>Delete technician</summary><DeleteForm action={deleteTechnician} id={t.id} back={back} label={`Delete ${t.name}`} warning="Their past work stays on each visit. Untick Active instead if they may come back." /></details>
+          </div>
         ))}
         <form action={createTechnician} className="row wrap">
           <input type="hidden" name="back" value={back} />

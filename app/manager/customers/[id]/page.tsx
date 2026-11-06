@@ -9,6 +9,8 @@ import {
   deleteContact,
   endPlan,
   markBoatSold,
+  deleteBoat,
+  deleteCustomer,
   pauseBoatAction,
   resumeBoatAction,
   updateBoat,
@@ -17,7 +19,7 @@ import {
 } from "../../actions";
 import { BoatFields, PlanFields } from "@/components/BoatPlanFields";
 import CopyButton from "@/components/CopyButton";
-import { Badge, Check, Field, JobStatusBadge, Notice, PageHead, Select, Submit } from "@/components/ui";
+import { Badge, Check, DeleteForm, Field, JobStatusBadge, Notice, PageHead, Select, Submit } from "@/components/ui";
 import { addDays, fmtDay, fmtDateTime, todayLA, WEEKDAYS, weekday } from "@/lib/dates";
 import { q, one } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
@@ -261,6 +263,7 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
                   {hidden("back", back)}
                   <Submit tone="quiet">Mark sold</Submit>
                 </form>
+                <details className="danger-zone"><summary>Delete boat</summary><DeleteForm action={deleteBoat} id={b.id} back={back} label={`Delete ${b.name}`} warning="Removes this boat with its plans, all visits and all photos. Use Mark sold instead to keep its history." /></details>
               </div>
             )}
           </section>
@@ -324,6 +327,9 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
           </section>
         </div>
       )}
+      <section className="stack">
+        <details className="danger-zone"><summary>Delete this customer</summary><DeleteForm action={deleteCustomer} id={id} back={back} label="Delete customer" warning={`Removes ${c.name} with every boat, plan, visit, photo, issue and request. This cannot be undone.`} /></details>
+      </section>
     </>
   );
 }
