@@ -198,7 +198,7 @@ export default function JobEditor({
   if (loadError) {
     return (
       <main className="page">
-        <Link href="/" className="back">← Jobs</Link>
+        <Link href="/crew" className="back">← Jobs</Link>
         <p className="error">{loadError}</p>
       </main>
     );
@@ -209,7 +209,7 @@ export default function JobEditor({
 
   return (
     <main className="page">
-      <Link href="/" className="back">← Jobs</Link>
+      <Link href="/crew" className="back">← Jobs</Link>
       <header className="top">
         <h1>{job.boatName}</h1>
         <div className="muted">

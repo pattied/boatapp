@@ -80,3 +80,20 @@ export function formatDate(iso: string) {
     timeZone: "America/Los_Angeles",
   });
 }
+
+// Boats a customer has opened on this phone, so the customer page can list them.
+export type MyBoat = { id: string; boatName: string; date: string };
+const MY_BOATS_KEY = "bp_my_boats";
+
+export function getMyBoats(): MyBoat[] {
+  try {
+    const list = JSON.parse(read(MY_BOATS_KEY) ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addMyBoat(boat: MyBoat) {
+  write(MY_BOATS_KEY, JSON.stringify([boat, ...getMyBoats().filter((b) => b.id !== boat.id)].slice(0, 30)));
+}

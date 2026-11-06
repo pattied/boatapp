@@ -74,14 +74,14 @@ export default function Home({ businessName, passcodeRequired }: { businessName:
   return (
     <main className="page">
       <header className="top">
-        <div className="eyebrow">{businessName} · Crew</div>
+        <div className="eyebrow">{businessName} · Technician</div>
         <h1>Boat photos</h1>
       </header>
 
       {!signedIn ? (
         <form className="card stack" onSubmit={signIn}>
           <label className="field">
-            <span>Crew passcode</span>
+            <span>Technician passcode</span>
             <input
               type="password"
               inputMode="text"
@@ -145,7 +145,7 @@ export default function Home({ businessName, passcodeRequired }: { businessName:
           </section>
         </>
       )}
-      <Link href="/manager" className="manager-link">Manager view</Link>
+      <Link href="/" className="manager-link">Switch role</Link>
     </main>
   );
 }

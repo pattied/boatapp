@@ -494,3 +494,57 @@ a {
   text-align: center;
   font-size: 14px;
 }
+
+/* Role picker */
+.roles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.role-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 18px;
+  min-height: 88px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.role-card:active {
+  background: #e9eff5;
+}
+
+.role-num {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.role-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.role-text strong {
+  font-size: 20px;
+}
+
+.role-arrow {
+  font-size: 28px;
+  color: var(--muted);
+}

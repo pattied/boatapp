@@ -126,6 +126,7 @@ export default function Manager({ businessName }: { businessName: string }) {
           {error && <p className="error">{error}</p>}
           <button className="btn primary" disabled={!code.trim()}>Sign in</button>
         </form>
+        <Link href="/" className="manager-link">Switch role</Link>
       </main>
     );
   }
@@ -149,7 +150,7 @@ export default function Manager({ businessName }: { businessName: string }) {
         </div>
         <div className="btn-row tight">
           <button className="btn" onClick={load} disabled={busy}>{busy ? "Refreshing…" : "Refresh"}</button>
-          <Link className="btn" href="/">Crew view</Link>
+          <Link className="btn" href="/">Switch role</Link>
         </div>
       </header>
 
@@ -179,7 +180,7 @@ export default function Manager({ businessName }: { businessName: string }) {
       {error && <p className="error">{error}</p>}
 
       {shown.length === 0 ? (
-        <p className="muted">{all.length ? "No jobs match." : "No jobs yet. Crews create them from the crew view."}</p>
+        <p className="muted">{all.length ? "No jobs match." : "No jobs yet. Technicians create them from the technician view."}</p>
       ) : (
         <div className="job-grid">
           {shown.map((j) => {

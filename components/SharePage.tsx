@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { addMyBoat } from "@/lib/client";
 import type { Job, Photo } from "@/lib/storage";
 
 export default function SharePage({
@@ -24,6 +26,11 @@ export default function SharePage({
   }));
   const extras = [...job.before.slice(pairs.length), ...job.after.slice(pairs.length)];
   const caption = `Fresh clean on ${job.boatName} by ${businessName}${instagramHandle ? ` @${instagramHandle}` : ""}`;
+
+  // Remember this cleaning so the customer page on this phone can list it.
+  useEffect(() => {
+    addMyBoat({ id: job.id, boatName: job.boatName, date: `Cleaned ${date}` });
+  }, [job.id, job.boatName, date]);
 
   // iPhones only allow sharing during the tap itself, so load the image ahead of time.
   useEffect(() => {
@@ -135,6 +142,8 @@ export default function SharePage({
       <footer className="foot muted small">
         {businessName}
         {instagramHandle ? ` · @${instagramHandle}` : ""}
+        <br />
+        <Link href="/customer">All your cleanings</Link>
       </footer>
     </main>
   );
