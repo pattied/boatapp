@@ -3,47 +3,37 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { addMyBoat } from "@/lib/client";
-import type { Job, Photo } from "@/lib/storage";
 
-export default function SharePage({
-  job,
-  date,
-  url,
-  businessName,
-  instagramHandle,
-}: {
-  job: Job;
+export type SharePageData = {
+  publicId: string;
+  boatName: string;
   date: string;
-  url: string;
-  businessName: string;
-  instagramHandle: string;
-}) {
+  partial: boolean;
+  pairs: { slot: string; before: string; after: string }[];
+  extras: { src: string; label: string }[];
+  shareImage: string | null;
+  portalPath: string | null;
+};
+
+export default function SharePage({ data, url, businessName, instagramHandle }: { data: SharePageData; url: string; businessName: string; instagramHandle: string }) {
   const shareFile = useRef<File | null>(null);
   const [note, setNote] = useState("");
-  const pairs = Array.from({ length: Math.min(job.before.length, job.after.length) }, (_, i) => ({
-    before: job.before[i],
-    after: job.after[i],
-  }));
-  const extras = [...job.before.slice(pairs.length), ...job.after.slice(pairs.length)];
-  const caption = `Fresh clean on ${job.boatName} by ${businessName}${instagramHandle ? ` @${instagramHandle}` : ""}`;
+  const caption = `Fresh clean on ${data.boatName} by ${businessName}${instagramHandle ? ` @${instagramHandle}` : ""}`;
 
-  // Remember this cleaning so the customer page on this phone can list it.
   useEffect(() => {
-    addMyBoat({ id: job.id, boatName: job.boatName, date: `Cleaned ${date}` });
-  }, [job.id, job.boatName, date]);
+    addMyBoat({ id: data.publicId, boatName: data.boatName, date: `Cleaned ${data.date}` });
+  }, [data.publicId, data.boatName, data.date]);
 
   // iPhones only allow sharing during the tap itself, so load the image ahead of time.
   useEffect(() => {
-    if (!job.shareImage) return;
-    fetch(job.shareImage)
+    if (!data.shareImage) return;
+    fetch(data.shareImage)
       .then((r) => r.blob())
       .then((b) => {
-        shareFile.current = new File([b], `${job.boatName.replace(/[^a-z0-9]+/gi, "-")}-before-after.jpg`, {
-          type: "image/jpeg",
-        });
+        shareFile.current = new File([b], `${data.boatName.replace(/[^a-z0-9]+/gi, "-")}-before-after.jpg`, { type: "image/jpeg" });
       })
       .catch(() => {});
-  }, [job.shareImage, job.boatName]);
+  }, [data.shareImage, data.boatName]);
 
   function flash(text: string) {
     setNote(text);
@@ -68,7 +58,7 @@ export default function SharePage({
         return;
       }
       if (navigator.share) {
-        await navigator.share({ title: `${job.boatName}: before & after`, url });
+        await navigator.share({ title: `${data.boatName}: before & after`, url });
         return;
       }
       await copy(url, "Link copied");
@@ -77,62 +67,61 @@ export default function SharePage({
     }
   }
 
+  const hasPhotos = data.pairs.length + data.extras.length > 0 || data.shareImage;
+
   return (
     <main className="page share">
       <header className="top">
         <div className="eyebrow">{businessName}</div>
-        <h1>{job.boatName}</h1>
-        <div className="muted">Cleaned {date}</div>
+        <h1>{data.boatName}</h1>
+        <div className="muted">{data.partial ? "Partly cleaned" : "Cleaned"} {data.date}</div>
       </header>
 
-      {job.shareImage && (
+      {!hasPhotos && <p className="muted">Photos are still uploading from the crew&apos;s phone. Check back shortly.</p>}
+
+      {data.shareImage && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={job.shareImage} alt={`${job.boatName} before and after`} className="share-preview" />
+        <img src={data.shareImage} alt={`${data.boatName} before and after`} className="share-preview" />
       )}
 
-      <div className="actions">
-        {job.shareImage && (
-          <button className="btn primary insta" onClick={share}>
-            Share to Instagram or anywhere
-          </button>
-        )}
-        <div className="btn-row">
-          {job.shareImage && (
-            <a className="btn" href={`${job.shareImage}?dl=1`} download>
-              Save image
-            </a>
+      {hasPhotos && (
+        <div className="actions">
+          {data.shareImage && (
+            <button className="btn primary insta" onClick={share}>Share to Instagram or anywhere</button>
           )}
-          <button className="btn" onClick={() => copy(caption, "Caption copied")}>
-            Copy caption
-          </button>
-          <button className="btn" onClick={() => copy(url, "Link copied")}>
-            Copy link
-          </button>
+          <div className="btn-row">
+            {data.shareImage && (
+              <a className="btn" href={`${data.shareImage}?dl=1`} download>Save image</a>
+            )}
+            <button className="btn" onClick={() => copy(caption, "Caption copied")}>Copy caption</button>
+            <button className="btn" onClick={() => copy(url, "Link copied")}>Copy link</button>
+          </div>
+          {note && <p className="note">{note}</p>}
+          {data.shareImage && <p className="muted small">On iPhone, tap Share, then Instagram or Save Image.</p>}
         </div>
-        {note && <p className="note">{note}</p>}
-        {job.shareImage && (
-          <p className="muted small">On iPhone, tap Share, then Instagram or Save Image.</p>
-        )}
-      </div>
+      )}
 
-      {pairs.length > 0 && (
+      {data.pairs.length > 0 && (
         <section className="stack">
           <h2>Drag to compare</h2>
-          {pairs.map((p, i) => (
-            <Compare key={i} before={p.before} after={p.after} />
+          {data.pairs.map((p) => (
+            <div key={p.slot} className="stack tight">
+              <span className="muted small">{p.slot}</span>
+              <Compare before={p.before} after={p.after} />
+            </div>
           ))}
         </section>
       )}
 
-      {(extras.length > 0 || (pairs.length === 0 && (job.before.length || job.after.length))) && (
+      {data.extras.length > 0 && (
         <section className="stack">
           <h2>More photos</h2>
           <div className="grid">
-            {(pairs.length ? extras : [...job.before, ...job.after]).map((p) => (
-              <a key={p.pathname} href={p.src} target="_blank" rel="noreferrer" className="tile">
+            {data.extras.map((p) => (
+              <a key={p.src} href={p.src} target="_blank" rel="noreferrer" className="tile">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.src} alt="Boat photo" loading="lazy" />
-                <span className="tile-tag">{p.pathname.includes("/before/") ? "Before" : "After"}</span>
+                <span className="tile-tag">{p.label}</span>
               </a>
             ))}
           </div>
@@ -143,37 +132,24 @@ export default function SharePage({
         {businessName}
         {instagramHandle ? ` · @${instagramHandle}` : ""}
         <br />
-        <Link href="/customer">All your cleanings</Link>
+        {data.portalPath ? <Link href={data.portalPath}>Your boat page: schedule, history and more</Link> : <Link href="/customer">Your cleanings</Link>}
       </footer>
     </main>
   );
 }
 
-function Compare({ before, after }: { before: Photo; after: Photo }) {
+function Compare({ before, after }: { before: string; after: string }) {
   const [pos, setPos] = useState(50);
   return (
     <div className="compare">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={after.src} alt="After" loading="lazy" />
+      <img src={after} alt="After" loading="lazy" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={before.src}
-        alt="Before"
-        loading="lazy"
-        className="compare-before"
-        style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
-      />
+      <img src={before} alt="Before" loading="lazy" className="compare-before" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
       <div className="compare-line" style={{ left: `${pos}%` }} />
       <span className="compare-tag left">Before</span>
       <span className="compare-tag right">After</span>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={pos}
-        onChange={(e) => setPos(Number(e.target.value))}
-        aria-label="Slide to compare before and after"
-      />
+      <input type="range" min={0} max={100} value={pos} onChange={(e) => setPos(Number(e.target.value))} aria-label="Slide to compare before and after" />
     </div>
   );
 }

@@ -1,0 +1,117 @@
+import Link from "next/link";
+import { signUp } from "../portal/actions";
+import { Notice, Select } from "@/components/ui";
+import { getConfig } from "@/lib/config";
+import { q } from "@/lib/db";
+import { BERTH_TYPES } from "@/lib/repo";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Sign up for boat cleaning" };
+
+type Props = { searchParams: Promise<{ error?: string }> };
+
+const CONSENT_TEXT =
+  "I agree to receive text messages about my boat cleanings (reminders, confirmations and photo links). Message and data rates may apply. Reply STOP to opt out.";
+
+// Public sign-up. Gate codes are never shown here: only names.
+export default async function SignUp({ searchParams }: Props) {
+  const sp = await searchParams;
+  const { businessName } = getConfig();
+  const [marinas, gates, docks, services] = await Promise.all([
+    q<{ id: string; name: string }>("select id, name from marinas order by name"),
+    q<{ id: string; name: string; marina: string }>("select g.id, g.name, m.name as marina from gates g join marinas m on m.id = g.marina_id order by m.name, g.name"),
+    q<{ id: string; name: string; marina: string }>("select d.id, d.name, m.name as marina from docks d join marinas m on m.id = d.marina_id order by m.name, d.name"),
+    q<{ id: string; name: string; price_text: string }>("select id, name, price_text from services where active and not is_add_on order by sort, name"),
+  ]);
+
+  return (
+    <main className="page signup">
+      <header className="top">
+        <div className="eyebrow">{businessName} · Customer</div>
+        <h1>Sign up for cleanings</h1>
+        <p className="muted small">Tell us about you and your boat. We review every sign-up and confirm your first cleaning.</p>
+      </header>
+      <Notice error={sp.error} />
+      {marinas.length === 0 ? (
+        <p className="notice warn">Online sign-up isn&apos;t open yet. Please call or text us.</p>
+      ) : (
+        <form action={signUp} className="stack">
+          <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp" aria-hidden="true" />
+          <section className="card stack">
+            <h2>You</h2>
+            <label className="field"><span>Name *</span><input name="name" required autoComplete="name" /></label>
+            <label className="field"><span>Mobile phone *</span><input name="phone" type="tel" required autoComplete="tel" /></label>
+            <label className="field"><span>Email</span><input name="email" type="email" autoComplete="email" /></label>
+          </section>
+
+          <section className="card stack">
+            <h2>Your boat</h2>
+            <label className="field"><span>Boat name *</span><input name="boat_name" required /></label>
+            <label className="field"><span>Make and model</span><input name="make_model" placeholder="Beneteau Oceanis 38" /></label>
+            <div className="two">
+              <label className="field"><span>Length (ft)</span><input name="length_ft" inputMode="numeric" pattern="\d*" /></label>
+              <label className="field"><span>Hull color</span><input name="hull_color" /></label>
+            </div>
+          </section>
+
+          <section className="card stack">
+            <h2>Where it&apos;s berthed</h2>
+            <p className="muted small">Our crews need the marina, gate, dock and slip to find your boat.</p>
+            <Select label="Marina" name="marina_id" required blank="Choose…" options={marinas.map((m) => ({ value: m.id, label: m.name }))} />
+            {gates.length > 0 && (
+              <Select label="Gate" name="gate_id" blank="Not sure" options={gates.map((g) => ({ value: g.id, label: g.name, group: g.marina }))} />
+            )}
+            {docks.length > 0 && (
+              <Select label="Dock" name="dock_id" required blank="Choose…" options={docks.map((d) => ({ value: d.id, label: d.name, group: d.marina }))} />
+            )}
+            <div className="two">
+              <Select label="Berth" name="berth_type" defaultValue="slip" options={BERTH_TYPES.map(([v, l]) => ({ value: v, label: l }))} />
+              <label className="field"><span>Slip</span><input name="slip" placeholder="B-14" /></label>
+            </div>
+            <label className="field">
+              <span>Access notes</span>
+              <textarea name="access_notes" rows={2} placeholder="Gate code changes monthly, cover snaps on port side" />
+            </label>
+            <label className="check"><input type="checkbox" name="liveaboard" /><span>Someone lives aboard</span></label>
+          </section>
+
+          <section className="card stack">
+            <h2>Cleaning plan</h2>
+            {services.length > 0 && (
+              <Select label="Service" name="service_id" options={services.map((s) => ({ value: s.id, label: s.price_text ? `${s.name} · ${s.price_text}` : s.name }))} />
+            )}
+            <div className="two">
+              <Select
+                label="How often"
+                name="frequency"
+                defaultValue="2"
+                options={[["1", "Every week"], ["2", "Every 2 weeks"], ["3", "Every 3 weeks"], ["4", "Every 4 weeks"], ["8", "Every 8 weeks"]].map(([v, l]) => ({ value: v, label: l }))}
+              />
+              <Select
+                label="Preferred day"
+                name="weekday"
+                blank="Any day"
+                options={["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((d) => ({ value: d, label: d }))}
+              />
+            </div>
+          </section>
+
+          <section className="card stack">
+            <label className="check">
+              <input type="checkbox" name="sms_consent" />
+              <span className="small">{CONSENT_TEXT}</span>
+            </label>
+            <input type="hidden" name="consent_text" value={CONSENT_TEXT} />
+            <label className="check">
+              <input type="checkbox" name="marketing_consent" />
+              <span className="small">You may feature photos of my boat on social media.</span>
+            </label>
+          </section>
+
+          <button className="btn primary">Send sign-up</button>
+        </form>
+      )}
+      <Link href="/customer" className="manager-link">Back</Link>
+    </main>
+  );
+}

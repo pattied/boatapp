@@ -20,3 +20,14 @@ export async function readJpeg(req: Request): Promise<Buffer | string> {
   if (buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff) return "That file is not a JPEG photo.";
   return buf;
 }
+
+// Reads a trimmed string field from a form, capped in length.
+export function field(fd: FormData, name: string, max = 200): string {
+  const v = fd.get(name);
+  return typeof v === "string" ? v.trim().slice(0, max) : "";
+}
+
+export function flag(fd: FormData, name: string): boolean {
+  const v = fd.get(name);
+  return v === "on" || v === "true" || v === "1";
+}

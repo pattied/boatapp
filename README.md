@@ -1,38 +1,35 @@
-# Boat Photos
+# Crisp Clean Marine
 
-The minimum version of the boat cleaning photo app. A crew member opens the site, starts a job, adds before and after photos, and gets a private link to text the customer. The customer's page shows a before/after slider and a branded image they can share to Instagram or save.
+Boat cleaning operations app with three roles, chosen on the start screen.
 
-## How it works
+## Roles
 
-- **Start screen (`/`)**: sign in as Manager, Technician or Customer.
-- **Technician page (`/crew`)**: technician passcode, new job (boat name and optional customer first name), and jobs started on this phone.
-- **Job page (`/job/<id>`)**: before and after photos, taken with the camera or picked from the library. Each photo is shrunk on the phone to 2048 pixels on the long edge, which also strips location data, and uploads right away. Failed uploads show Retry. Tap a photo to star it for the share image. "Create share link" builds a 1080 × 1350 before-over-after image with the business name and Instagram handle, then offers Text link, Copy link and Share.
-- **Manager page (`/manager`)**: every job from every phone, newest first. Search by boat or customer, and filter to today, the last 7 days, or jobs with no customer link yet. Each job shows its before and after photo counts, a status (No photos, No link yet, Link ready) and its last activity, with buttons to open the job, open the customer page, copy the link, or delete the job and its photos. It uses `MANAGER_PASSCODE` if set, otherwise the crew passcode.
-- **Customer home (`/customer`)**: customers have no accounts yet, so the texted link is their key. Lists the cleanings opened on that phone and accepts a pasted link.
-- **Customer photo page (`/j/<id>`)**: no login. The link uses 128 random bits, so it can't be guessed. It shows the share image, Share (the image file alone, which is what iPhones need for Instagram), Save image, Copy caption, Copy link, a drag-to-compare slider per before/after pair, and any extra photos. Text-message link previews use the share image.
-- **Storage**: Vercel Blob. Files are never overwritten. Photos are served through `/p/...` on this site, so the Blob store can stay private and the CDN caches each photo once. With no Blob store and no Vercel environment, the app stores files in `.data/` for local testing.
+- **Manager (`/manager`)**: marinas with gates (codes and change history) and docks; crews and technicians; services with photo shot lists; customers with contacts, boats and recurring plans (fixed or seasonal frequency); a day and week schedule grouped by crew with bulk assign, move and cancel; weather days; a reschedule queue; flagged issues with customer notes, quotes and visibility; customer requests and sign-ups; billing CSV export; an activity log.
+- **Technician (`/crew`)**: signs in by name with the crew passcode and sees today's and tomorrow's jobs for their crew in walking order, with gate code and access notes. Takes before photos per angle, starts the job, takes after photos guided by the matching before photo, finishes with a preset customer message, skips with a reason, or flags an issue. Works without signal: everything queues on the phone and uploads when signal returns. Add it to the home screen.
+- **Customer**: a private boat page (`/portal/<link>`) with schedule, history, before and after photos (`/j/<link>`), flagged issues with quotes, and forms to order add-on services or pause cleanings. New customers sign up at `/signup`; the manager reviews and activates them.
 
-## Blob usage limits
+Marina, dock and slip are required for boats in a slip. A gate is required when the marina has gates, unless the dock already has one.
 
-Each photo upload is one Blob "advanced operation", and so is each listing of a job's photos. The Hobby plan allows 2,000 advanced operations a month, and Blob stops working for the rest of the 30-day period once that is exceeded. To keep listings rare, the app caches each job's photo list in Vercel's data cache and expires it only when that job changes. A typical job costs about 12 advanced operations: the job record, about 8 photos, the share image, and a couple of listings. Hobby therefore covers roughly 150 jobs a month. Vercel's Hobby plan is also limited to non-commercial use, so move to Pro before crews use the app daily.
+## Not in this version
+
+Text messages (reminders, YES/NO confirmations, photo links), social media posting and payments. Customer links are copied and sent by hand.
 
 ## Settings (Vercel → Project → Settings → Environment Variables)
 
-| Variable | Required | Purpose |
+| Name | Required | Purpose |
 | --- | --- | --- |
-| `BLOB_READ_WRITE_TOKEN` | Yes | Set automatically when a Blob store is connected to the project |
-| `APP_PASSCODE` | Yes | Shared crew passcode. Without it, anyone with the site address can upload |
-| `MANAGER_PASSCODE` | Optional | Separate passcode for `/manager`. Without it, the crew passcode opens the manager page |
-| `BUSINESS_NAME` | Recommended | Shown on the customer page and in the share image |
-| `INSTAGRAM_HANDLE` | Optional | Without the @. Burned into the share image and caption |
-| `BLOB_ACCESS` | Only if the store is public | `private` (default) or `public`. Must match the Blob store's access setting |
+| `DATABASE_URL` | Yes | Postgres connection. Set automatically when the Neon database is connected |
+| `BLOB_READ_WRITE_TOKEN` | Yes | Photo storage. Set automatically when the Blob store is connected |
+| `APP_PASSCODE` | Yes | Technician passcode |
+| `MANAGER_PASSCODE` | Strongly recommended | Manager passcode. Without it, technicians can open the manager pages with their passcode |
+| `MANAGER_PHONE` | Optional | Shown to technicians on urgent flags as a tap-to-call number |
+| `SESSION_SECRET` | Optional | Signs sign-in cookies. Defaults to a value derived from the passcodes; changing a passcode signs everyone out |
+| `BUSINESS_NAME` | Optional | Defaults to Crisp Clean Marine |
+| `INSTAGRAM_HANDLE` | Optional | Added to share captions |
 
-Changing a variable takes effect after the next deploy.
+## Limits on the free plans
 
-## Add to the home screen
-
-- **iPhone**: open the site in Safari, tap Share, then Add to Home Screen.
-- **Android**: open it in Chrome, tap the menu, then Add to Home screen or Install app.
+Vercel Hobby is for non-commercial use. Blob on Hobby allows about 2,000 uploads a month: each photo is one upload, so roughly 150 to 250 jobs a month. Neon's free plan allows 0.5 GB of data, which is far more than this app needs. Move to Vercel Pro before relying on it for paying customers.
 
 ## Local development
 
@@ -41,8 +38,4 @@ npm install
 npm run dev
 ```
 
-Without a Blob token, files go to `.data/`.
-
-## Not in this version
-
-This version has no offline upload queue (photos need signal to upload), no scheduling, texting automation, reminders, customer portal or flagged issues. Those are in the build plan.
+With no `DATABASE_URL`, the app runs an embedded Postgres in `.data/pg` and stores photos in `.data/files`. Tests: `npx tsx --test tests/*.test.ts`.

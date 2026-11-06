@@ -1,11 +1,6 @@
 "use client";
 
-// Browser-only helpers. Storage access is wrapped because private browsing can block it.
-
-const PASSCODE_KEY = "bp_passcode";
-const RECENT_KEY = "bp_recent";
-
-export type RecentJob = { id: string; boatName: string; createdAt: string };
+// Browser-only helpers for customers. Storage access is wrapped because private browsing can block it.
 
 function read(key: string): string | null {
   try {
@@ -15,85 +10,35 @@ function read(key: string): string | null {
   }
 }
 
-function write(key: string, value: string | null) {
+function write(key: string, value: string) {
   try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
+    window.localStorage.setItem(key, value);
   } catch {
     // Storage unavailable: the app still works for this visit.
   }
 }
 
-export const getPasscode = () => read(PASSCODE_KEY) ?? "";
-export const setPasscode = (v: string | null) => write(PASSCODE_KEY, v);
-
-export function getRecent(): RecentJob[] {
+function readList<T>(key: string): T[] {
   try {
-    const list = JSON.parse(read(RECENT_KEY) ?? "[]");
+    const list = JSON.parse(read(key) ?? "[]");
     return Array.isArray(list) ? list : [];
   } catch {
     return [];
   }
 }
 
-export function addRecent(job: RecentJob) {
-  const list = [job, ...getRecent().filter((j) => j.id !== job.id)].slice(0, 40);
-  write(RECENT_KEY, JSON.stringify(list));
-}
-
-export function getCover(jobId: string): { before?: string; after?: string } {
-  try {
-    return JSON.parse(read(`bp_cover_${jobId}`) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-
-export function setCover(jobId: string, cover: { before?: string; after?: string }) {
-  write(`bp_cover_${jobId}`, JSON.stringify(cover));
-}
-
-const MANAGER_KEY = "bp_manager_passcode";
-export const getManagerPasscode = () => read(MANAGER_KEY) ?? "";
-export const setManagerPasscode = (v: string | null) => write(MANAGER_KEY, v);
-
-export async function api<T>(path: string, init: RequestInit = {}, asManager = false): Promise<T> {
-  const headers = new Headers(init.headers);
-  const passcode = asManager ? getManagerPasscode() : getPasscode();
-  if (passcode) headers.set(asManager ? "x-manager-passcode" : "x-passcode", passcode);
-  const res = await fetch(path, { ...init, headers, cache: "no-store" });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error((data as { error?: string }).error || `Request failed (${res.status})`);
-    (err as Error & { status?: number }).status = res.status;
-    throw err;
-  }
-  return data as T;
-}
-
-export function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "America/Los_Angeles",
-  });
-}
-
-// Boats a customer has opened on this phone, so the customer page can list them.
+// Photo pages a customer has opened on this phone.
 export type MyBoat = { id: string; boatName: string; date: string };
 const MY_BOATS_KEY = "bp_my_boats";
-
-export function getMyBoats(): MyBoat[] {
-  try {
-    const list = JSON.parse(read(MY_BOATS_KEY) ?? "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
-}
-
+export const getMyBoats = () => readList<MyBoat>(MY_BOATS_KEY);
 export function addMyBoat(boat: MyBoat) {
   write(MY_BOATS_KEY, JSON.stringify([boat, ...getMyBoats().filter((b) => b.id !== boat.id)].slice(0, 30)));
+}
+
+// Customer portals opened on this phone (usually one).
+export type MyPortal = { token: string; name: string };
+const MY_PORTALS_KEY = "cc_portals";
+export const getMyPortals = () => readList<MyPortal>(MY_PORTALS_KEY);
+export function addMyPortal(p: MyPortal) {
+  write(MY_PORTALS_KEY, JSON.stringify([p, ...getMyPortals().filter((x) => x.token !== p.token)].slice(0, 5)));
 }
