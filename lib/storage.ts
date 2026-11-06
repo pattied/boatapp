@@ -134,6 +134,7 @@ export async function createJob(input: { boatName: string; customerName: string 
     createdAt: new Date().toISOString(),
   };
   await writeFile(`jobs/${meta.id}/meta.json`, Buffer.from(JSON.stringify(meta)), "application/json");
+  revalidateTag(INDEX_TAG, { expire: 0 });
   return meta;
 }
 
@@ -147,8 +148,73 @@ export async function getJob(id: string): Promise<Job | null> {
   return unstable_cache(() => loadJob(id), ["job", id], { tags: [jobTag(id)], revalidate: 86400 })();
 }
 
+const INDEX_TAG = "jobs-index";
+
 function jobChanged(id: string) {
   revalidateTag(jobTag(id), { expire: 0 });
+  revalidateTag(INDEX_TAG, { expire: 0 });
+}
+
+export type JobSummary = JobMeta & {
+  before: number;
+  after: number;
+  hasShare: boolean;
+  lastActivity: string;
+};
+
+// A job's meta.json never changes, so it is cached for good after the first read.
+function getMeta(id: string): Promise<JobMeta | null> {
+  return unstable_cache(
+    async () => {
+      const raw = await readText(`jobs/${id}/meta.json`);
+      return raw ? (JSON.parse(raw) as JobMeta) : null;
+    },
+    ["meta", id],
+    { revalidate: false },
+  )();
+}
+
+// Every job from every phone, newest first. One listing per refresh, refreshed only after a change.
+export async function listJobs(): Promise<JobSummary[]> {
+  return unstable_cache(
+    async () => {
+      const files = await listUnder("jobs/");
+      const byId = new Map<string, { meta: boolean; before: number; after: number; share: number; last: string }>();
+      for (const f of files) {
+        const m = f.pathname.match(/^jobs\/([A-Za-z0-9_-]{22})\/(meta\.json|before\/|after\/|share\/)/);
+        if (!m) continue;
+        const entry = byId.get(m[1]) ?? { meta: false, before: 0, after: 0, share: 0, last: f.uploadedAt };
+        if (m[2] === "meta.json") entry.meta = true;
+        else if (m[2] === "before/") entry.before++;
+        else if (m[2] === "after/") entry.after++;
+        else entry.share++;
+        if (f.uploadedAt > entry.last) entry.last = f.uploadedAt;
+        byId.set(m[1], entry);
+      }
+      const ids = [...byId.entries()].filter(([, e]) => e.meta).map(([id]) => id);
+      const metas = await Promise.all(ids.map(getMeta));
+      const jobs: JobSummary[] = [];
+      metas.forEach((meta, i) => {
+        if (!meta) return;
+        const e = byId.get(ids[i])!;
+        jobs.push({ ...meta, before: e.before, after: e.after, hasShare: e.share > 0, lastActivity: e.last });
+      });
+      return jobs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+    ["jobs-index"],
+    { tags: [INDEX_TAG], revalidate: 86400 },
+  )();
+}
+
+export async function deleteJob(id: string): Promise<void> {
+  if (!isJobId(id)) throw new Error("Invalid job");
+  if (mode() === "blob") {
+    const files = await listUnder(`jobs/${id}/`);
+    if (files.length) await del(files.map((f) => f.pathname));
+  } else {
+    await fs.rm(path.join(LOCAL_DIR, "jobs", id), { recursive: true, force: true });
+  }
+  jobChanged(id);
 }
 
 // Checks a job exists without listing (a "simple operation").

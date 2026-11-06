@@ -376,3 +376,121 @@ a {
   text-align: center;
   padding-top: 8px;
 }
+
+/* Manager view */
+.page.wide {
+  max-width: 1040px;
+}
+
+.manager-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-row.tight .btn {
+  flex: 0 1 auto;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search {
+  font: inherit;
+  font-size: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pill.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.job-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.job-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.status.good {
+  background: #dff5e6;
+  color: var(--green);
+}
+
+.status.warn {
+  background: #fff1d6;
+  color: #9a6200;
+}
+
+.status.idle {
+  background: #e6ecf2;
+  color: #4a6075;
+}
+
+.btn.small-btn {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.btn.danger {
+  color: var(--red);
+}
+
+.manager-link {
+  text-align: center;
+  font-size: 14px;
+}

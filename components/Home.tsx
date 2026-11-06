@@ -74,7 +74,7 @@ export default function Home({ businessName, passcodeRequired }: { businessName:
   return (
     <main className="page">
       <header className="top">
-        <div className="eyebrow">{businessName}</div>
+        <div className="eyebrow">{businessName} · Crew</div>
         <h1>Boat photos</h1>
       </header>
 
@@ -145,6 +145,7 @@ export default function Home({ businessName, passcodeRequired }: { businessName:
           </section>
         </>
       )}
+      <Link href="/manager" className="manager-link">Manager view</Link>
     </main>
   );
 }

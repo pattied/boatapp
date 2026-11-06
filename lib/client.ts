@@ -53,10 +53,14 @@ export function setCover(jobId: string, cover: { before?: string; after?: string
   write(`bp_cover_${jobId}`, JSON.stringify(cover));
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+const MANAGER_KEY = "bp_manager_passcode";
+export const getManagerPasscode = () => read(MANAGER_KEY) ?? "";
+export const setManagerPasscode = (v: string | null) => write(MANAGER_KEY, v);
+
+export async function api<T>(path: string, init: RequestInit = {}, asManager = false): Promise<T> {
   const headers = new Headers(init.headers);
-  const passcode = getPasscode();
-  if (passcode) headers.set("x-passcode", passcode);
+  const passcode = asManager ? getManagerPasscode() : getPasscode();
+  if (passcode) headers.set(asManager ? "x-manager-passcode" : "x-passcode", passcode);
   const res = await fetch(path, { ...init, headers, cache: "no-store" });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
