@@ -1,4 +1,5 @@
-import { del, get, list, put } from "@vercel/blob";
+import { del, get, head, list, put } from "@vercel/blob";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { promises as fs } from "fs";
 import path from "path";
 import { isJobId, newFileName, newJobId, PHOTO_PATH } from "./ids";
@@ -136,8 +137,41 @@ export async function createJob(input: { boatName: string; customerName: string 
   return meta;
 }
 
+// Listing a job's photos is a Blob "advanced operation", and the Hobby plan allows 2,000 a
+// month. Job listings are cached in Vercel's shared data cache and expired only when that
+// job changes, so page views and link previews don't spend operations.
+const jobTag = (id: string) => `job-${id}`;
+
 export async function getJob(id: string): Promise<Job | null> {
   if (!isJobId(id)) return null;
+  return unstable_cache(() => loadJob(id), ["job", id], { tags: [jobTag(id)], revalidate: 86400 })();
+}
+
+function jobChanged(id: string) {
+  revalidateTag(jobTag(id), { expire: 0 });
+}
+
+// Checks a job exists without listing (a "simple operation").
+export async function jobExists(id: string): Promise<boolean> {
+  if (!isJobId(id)) return false;
+  const pathname = `jobs/${id}/meta.json`;
+  if (mode() === "blob") {
+    try {
+      await head(pathname);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  try {
+    await fs.stat(path.join(LOCAL_DIR, pathname));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadJob(id: string): Promise<Job | null> {
   const files = await listUnder(`jobs/${id}/`);
   if (!files.some((f) => f.pathname === `jobs/${id}/meta.json`)) return null;
   const raw = await readText(`jobs/${id}/meta.json`);
@@ -162,6 +196,7 @@ export async function getJob(id: string): Promise<Job | null> {
 export async function addPhoto(id: string, folder: PhotoKind | "share", jpeg: Buffer): Promise<Photo> {
   const pathname = `jobs/${id}/${folder}/${newFileName()}.jpg`;
   await writeFile(pathname, jpeg, "image/jpeg");
+  jobChanged(id);
   return { pathname, src: srcFor(pathname), uploadedAt: new Date().toISOString() };
 }
 
@@ -169,9 +204,7 @@ export async function deletePhoto(id: string, pathname: string): Promise<void> {
   if (!PHOTO_PATH.test(pathname) || !pathname.startsWith(`jobs/${id}/`)) {
     throw new Error("Invalid photo path");
   }
-  if (mode() === "blob") {
-    await del(pathname);
-    return;
-  }
-  await fs.rm(path.join(LOCAL_DIR, pathname), { force: true });
+  if (mode() === "blob") await del(pathname);
+  else await fs.rm(path.join(LOCAL_DIR, pathname), { force: true });
+  jobChanged(id);
 }

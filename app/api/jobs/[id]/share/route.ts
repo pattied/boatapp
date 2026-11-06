@@ -1,7 +1,7 @@
 import { checkPasscode } from "@/lib/auth";
 import { failure, json, readJpeg } from "@/lib/http";
 import { isJobId } from "@/lib/ids";
-import { addPhoto, getJob } from "@/lib/storage";
+import { addPhoto, jobExists } from "@/lib/storage";
 
 // Stores the branded before/after image the crew phone composed.
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -11,7 +11,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const jpeg = await readJpeg(req);
     if (typeof jpeg === "string") return json({ error: jpeg }, 400);
-    if (!(await getJob(id))) return json({ error: "Job not found." }, 404);
+    if (!(await jobExists(id))) return json({ error: "Job not found." }, 404);
     const image = await addPhoto(id, "share", jpeg);
     return json({ shareImage: image.src }, 201);
   } catch (err) {

@@ -9,6 +9,10 @@ The minimum version of the boat cleaning photo app. A crew member opens the site
 - **Customer page (`/j/<id>`)**: no login. The link uses 128 random bits, so it can't be guessed. It shows the share image, Share (the image file alone, which is what iPhones need for Instagram), Save image, Copy caption, Copy link, a drag-to-compare slider per before/after pair, and any extra photos. Text-message link previews use the share image.
 - **Storage**: Vercel Blob. Files are never overwritten. Photos are served through `/p/...` on this site, so the Blob store can stay private and the CDN caches each photo once. With no Blob store and no Vercel environment, the app stores files in `.data/` for local testing.
 
+## Blob usage limits
+
+Each photo upload is one Blob "advanced operation", and so is each listing of a job's photos. The Hobby plan allows 2,000 advanced operations a month, and Blob stops working for the rest of the 30-day period once that is exceeded. To keep listings rare, the app caches each job's photo list in Vercel's data cache and expires it only when that job changes. A typical job costs about 12 advanced operations: the job record, about 8 photos, the share image, and a couple of listings. Hobby therefore covers roughly 150 jobs a month. Vercel's Hobby plan is also limited to non-commercial use, so move to Pro before crews use the app daily.
+
 ## Settings (Vercel → Project → Settings → Environment Variables)
 
 | Variable | Required | Purpose |

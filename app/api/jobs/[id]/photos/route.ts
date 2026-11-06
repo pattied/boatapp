@@ -1,7 +1,7 @@
 import { checkPasscode } from "@/lib/auth";
 import { failure, json, readJpeg } from "@/lib/http";
 import { isJobId } from "@/lib/ids";
-import { addPhoto, deletePhoto, getJob, type PhotoKind } from "@/lib/storage";
+import { addPhoto, deletePhoto, jobExists, type PhotoKind } from "@/lib/storage";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,7 +14,7 @@ export async function POST(req: Request, ctx: Ctx) {
   try {
     const jpeg = await readJpeg(req);
     if (typeof jpeg === "string") return json({ error: jpeg }, 400);
-    if (!(await getJob(id))) return json({ error: "Job not found." }, 404);
+    if (!(await jobExists(id))) return json({ error: "Job not found." }, 404);
     const photo = await addPhoto(id, kind as PhotoKind, jpeg);
     return json({ photo }, 201);
   } catch (err) {
