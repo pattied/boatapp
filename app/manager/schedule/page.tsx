@@ -171,10 +171,12 @@ function JobLine({ j, n }: { j: JobRow; n: number }) {
           {j.is_override && j.origin === "plan" ? " · Edited" : ""}
         </div>
       </div>
-      <span className="small muted">
-        {j.before_count}/{j.after_count} photos{j.issue_count ? ` · ${j.issue_count} issue` : ""}
-      </span>
-      <JobStatusBadge status={j.status} />
+      <div className="job-meta">
+        <span className="small muted">
+          {j.before_count}/{j.after_count} photos{j.issue_count ? ` · ${j.issue_count} issue` : ""}
+        </span>
+        <JobStatusBadge status={j.status} />
+      </div>
     </div>
   );
 }
