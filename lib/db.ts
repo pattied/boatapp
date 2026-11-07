@@ -1,6 +1,6 @@
 import path from "path";
 import { promises as fs } from "fs";
-import { DEFAULT_SERVICES, SCHEMA } from "./schema";
+import { ADDED_SERVICES_2026_11, DEFAULT_SERVICES, RETIRED_SERVICES_2026_11, SCHEMA } from "./schema";
 
 // One Postgres interface for the whole app. In production it connects to the database Vercel
 // provides (DATABASE_URL or POSTGRES_URL, for example Neon). On a developer machine with no
@@ -88,6 +88,22 @@ async function migrate(db: Db) {
           s.sort,
         ]);
       }
+    }
+    // One-time update: add the detail services and turn off the ones they replace.
+    // Runs once, so later edits on the Services page are never undone.
+    const applied = await q("select 1 from app_meta where key = 'services_2026_11'");
+    if (!applied.length) {
+      for (const s of ADDED_SERVICES_2026_11) {
+        await q(
+          `insert into services (name, description, is_add_on, price_text, sort)
+           select $1, $2, $3, $4, $5
+           where not exists (select 1 from services where lower(name) = lower($1) and name <> all($6::text[]))`,
+          [s.name, s.description, s.addOn, s.price, s.sort, RETIRED_SERVICES_2026_11],
+        );
+      }
+      // Case-sensitive on purpose: "Full detail" is retired, the new "Full Detail" is not.
+      await q("update services set active = false where name = any($1::text[])", [RETIRED_SERVICES_2026_11]);
+      await q("insert into app_meta (key, value) values ('services_2026_11', 'done')");
     }
   });
 }

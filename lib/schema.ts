@@ -226,12 +226,22 @@ create index if not exists audit_entity on audit_log (entity, entity_id)
 `;
 
 // Starting catalog, inserted once when the services table is empty.
+// Detail services added November 2026. They replace "Full detail", "Interior clean" and "Teak work".
+export const ADDED_SERVICES_2026_11 = [
+  { name: "Exterior Detail", description: "Wash, polish and wax", addOn: true, price: "", sort: 20 },
+  { name: "Interior Detail", description: "Cabin, head and galley", addOn: true, price: "", sort: 21 },
+  { name: "Full Detail", description: "Exterior and interior detail", addOn: true, price: "", sort: 22 },
+  { name: "Rail and Metal Polishing", description: "Stainless rails, cleats and hardware", addOn: true, price: "", sort: 23 },
+  { name: "Teak Sanding and Restoration", description: "Sand, clean and restore teak", addOn: true, price: "", sort: 24 },
+  { name: "Gelcoat Repair", description: "Repair chips, cracks and gouges in gelcoat", addOn: true, price: "", sort: 25 },
+  { name: "Stain Removal + Wash", description: "Remove hull and deck stains, then a full wash", addOn: true, price: "", sort: 26 },
+];
+export const RETIRED_SERVICES_2026_11 = ["Full detail", "Interior clean", "Teak work"];
+
 export const DEFAULT_SERVICES: { name: string; description: string; addOn: boolean; price: string; sort: number }[] = [
   { name: "Exterior wash", description: "Wash and rinse hull, deck and canvas exterior", addOn: false, price: "", sort: 1 },
   { name: "Wash and wax", description: "Exterior wash plus a coat of wax", addOn: false, price: "", sort: 2 },
   { name: "Extra wash", description: "One-off exterior wash, for example before an outing", addOn: true, price: "", sort: 10 },
-  { name: "Full detail", description: "Wash, compound, wax and interior wipe-down", addOn: true, price: "", sort: 11 },
-  { name: "Teak work", description: "Clean, brighten and oil teak", addOn: true, price: "Quote required", sort: 12 },
-  { name: "Interior clean", description: "Cabin, head and galley", addOn: true, price: "", sort: 13 },
-  { name: "Canvas and cushion clean", description: "Bimini, dodger and cushions", addOn: true, price: "", sort: 14 },
+  ...ADDED_SERVICES_2026_11,
+  { name: "Canvas and cushion clean", description: "Bimini, dodger and cushions", addOn: true, price: "", sort: 30 },
 ];
