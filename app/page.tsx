@@ -4,9 +4,10 @@ import { getConfig } from "@/lib/config";
 export const dynamic = "force-dynamic";
 
 const ROLES = [
-  { href: "/manager", title: "Manager", body: "See every job, its photos and customer links." },
-  { href: "/crew", title: "Technician", body: "Start a job, take before and after photos, send the link." },
-  { href: "/customer", title: "Customer", body: "See and share the photos of your boat." },
+  { href: "/manager", title: "Manager", body: "Schedule, customers, messages and everything else." },
+  { href: "/crew", title: "Technician", body: "Today's jobs, before and after photos, flags." },
+  { href: "/sales", title: "Sales", body: "Walk a dock, log boats and add new leads." },
+  { href: "/customer", title: "Customer", body: "Your schedule, photos and requests." },
 ];
 
 export default function Page() {

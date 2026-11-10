@@ -10,7 +10,7 @@ PORT="${E2E_PORT:-3100}"
 pkill -f "next start -p $PORT" 2>/dev/null; pkill -f next-server 2>/dev/null; sleep 1
 rm -rf "$WORK" "$ROOT/.data/files"; mkdir -p "$WORK"
 cd "$ROOT"
-PGLITE_DIR="$WORK/pg" APP_PASSCODE=crispclean MANAGER_PASSCODE=boss-pass MANAGER_PHONE=415-555-0100 \
+PGLITE_DIR="$WORK/pg" APP_PASSCODE=crispclean MANAGER_PASSCODE=boss-pass SALES_PASSCODE=sales-pass MANAGER_PHONE=415-555-0100 \
   MESSAGING_INBOUND_SECRET=e2e-inbound MESSAGING_FAKE_NOW=2026-11-10T20:00:00Z BUSINESS_ADDRESS="100 Harbor Dr, Sausalito, CA 94965" APP_URL="http://localhost:$PORT" \
   nohup npx next start -p "$PORT" > "$WORK/server.log" 2>&1 &
 sleep 6

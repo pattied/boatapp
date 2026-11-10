@@ -4,6 +4,7 @@ import { addDays, fmtDateTime, fmtDay, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { JOB_SELECT, locationText, type JobRow } from "@/lib/repo";
 import { requireManager } from "@/lib/session";
+import { coverage, notesDue } from "@/lib/notes";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
@@ -40,10 +41,12 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
     `select (select count(*)::int from messages where direction = 'in' and read_at is null) as unread,
             (select count(*)::int from messages where status = 'pending_approval') as approval`,
   );
+  const due = (await notesDue(today, 14)).filter((n) => n.customer_status !== 'prospect');
+  const [spot] = await q<{ n: number }>("select count(*)::int as n from spotted_boats where status = 'new'");
   const t = Object.fromEntries(todayJobs.map((r) => [r.status, r.n]));
   const total = todayJobs.reduce((s, r) => s + r.n, 0);
   const nothing =
-    !urgent.length && !review.length && !resched.length && !unassigned.length && !signups.length && !requests[0].n && !photosMissing.length;
+    !urgent.length && !review.length && !resched.length && !unassigned.length && !signups.length && !requests[0].n && !photosMissing.length && !due.length;
 
   return (
     <>
@@ -57,6 +60,22 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
       <Notice ok={sp.ok} error={sp.error} />
 
       {nothing && <Empty>Nothing is waiting on you.</Empty>}
+
+      {due.length > 0 && (
+        <section className="attn warn">
+          <h2>Customer dates coming up ({due.length})</h2>
+          {due.map((n) => {
+            const cov = coverage(n, today, (d) => fmtDay(d, { weekday: "short", month: "short", day: "numeric" }));
+            return (
+              <Link key={n.id} href={`/manager/customers/${n.customer_id}#notes`} className="attn-row">
+                <strong>{n.customer_name}</strong>{n.boat_name ? ` · ${n.boat_name}` : ""} · clean by {fmtDay(n.needed_by!, { weekday: "short", month: "short", day: "numeric" })}
+                <div className="small">{n.body}</div>
+                {cov && <div className={`small ${cov.tone === "good" ? "good-text" : "warn-text"}`}>{cov.text}</div>}
+              </Link>
+            );
+          })}
+        </section>
+      )}
 
       {urgent.length > 0 && (
         <section className="attn bad">
@@ -120,6 +139,9 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
       )}
 
       <div className="tiles">
+        <Link href="/sales" className="tile-link">
+          <span className="big">{spot.n}</span> dock-walk boat(s) to follow up
+        </Link>
         <Link href="/manager/messages" className="tile-link">
           <span className="big">{msg.unread}</span> new message(s) from customers
         </Link>

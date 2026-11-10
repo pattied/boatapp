@@ -33,6 +33,11 @@ export default async function Exports() {
           <a className="btn" href="/api/manager/export?what=contacts&who=prospects">Prospects only</a>
           <a className="btn" href="/api/manager/export?what=contacts&who=mailable">Only people with a mailing address</a>
         </div>
+        <p className="muted small">Sales records: boats logged on dock walks (with the owner where known), and every customer note.</p>
+        <div className="btn-row">
+          <a className="btn" href="/api/manager/export?what=spotted">Dock-walk boats</a>
+          <a className="btn" href="/api/manager/export?what=notes">Customer notes</a>
+        </div>
       </section>
       <section className="card stack">
         <h2>Message records</h2>

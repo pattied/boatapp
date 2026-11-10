@@ -62,5 +62,29 @@ export async function GET(req: Request) {
     const rows = await q<Record<string, unknown>>("select channel, address, reason, at from suppressions order by at");
     return csvFile(`do-not-contact-${day}.csv`, [["channel", "Channel"], ["address", "Phone or email"], ["reason", "Reason"], ["at", "Since"]], rows);
   }
+  if (what === "spotted") {
+    const rows = await q<Record<string, unknown>>(
+      `select m.name as marina, d.name as dock, s.slip, s.boat_name, s.make_model, s.length_ft, s.boat_type, s.condition, s.status,
+         c.name as owner, c.phone, c.email, c.address1, c.address2, c.city, c.state, c.postal_code, s.spotted_by, s.spotted_at
+       from spotted_boats s join marinas m on m.id = s.marina_id left join docks d on d.id = s.dock_id left join customers c on c.id = s.customer_id
+       order by m.name, d.name, s.slip`,
+    );
+    return csvFile(`dock-walk-boats-${day}.csv`, [
+      ["marina", "Marina"], ["dock", "Dock"], ["slip", "Slip"], ["boat_name", "Boat"], ["make_model", "Make and model"], ["length_ft", "Length (ft)"],
+      ["boat_type", "Type"], ["condition", "Noticed"], ["status", "Status"], ["owner", "Owner"], ["phone", "Phone"], ["email", "Email"],
+      ["address1", "Address 1"], ["address2", "Address 2"], ["city", "City"], ["state", "State"], ["postal_code", "ZIP"], ["spotted_by", "Logged by"], ["spotted_at", "Logged"],
+    ], rows);
+  }
+
+  if (what === "notes") {
+    const rows = await q<Record<string, unknown>>(
+      `select n.created_at, c.name, c.status, b.name as boat, n.body, n.needed_by, n.created_by, n.done_at, n.done_by
+       from customer_notes n join customers c on c.id = n.customer_id left join boats b on b.id = n.boat_id order by n.created_at`,
+    );
+    return csvFile(`customer-notes-${day}.csv`, [
+      ["created_at", "Written"], ["name", "Person"], ["status", "Status"], ["boat", "Boat"], ["body", "Note"], ["needed_by", "Clean by"],
+      ["created_by", "Written by"], ["done_at", "Done"], ["done_by", "Done by"],
+    ], rows);
+  }
   return new Response("Unknown export.", { status: 400 });
 }

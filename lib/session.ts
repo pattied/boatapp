@@ -5,7 +5,7 @@ import { q } from "./db";
 
 // Signed cookie sessions. Managers and technicians sign in with a shared passcode;
 // technicians also pick their own name so their crew's jobs load and their work is attributed.
-export type Session = { role: "manager" } | { role: "tech"; techId: string; name: string };
+export type Session = { role: "manager" } | { role: "tech"; techId: string; name: string } | { role: "sales"; name: string };
 
 const COOKIE = "cc_session";
 
@@ -26,8 +26,16 @@ function safeEqual(a: string, b: string) {
   return timingSafeEqual(x, y);
 }
 
-export function passcodeOk(role: "manager" | "tech", given: string): boolean {
-  const expected = role === "manager" ? process.env.MANAGER_PASSCODE || process.env.APP_PASSCODE : process.env.APP_PASSCODE;
+export type Role = "manager" | "tech" | "sales";
+
+export function passcodeOk(role: Role, given: string): boolean {
+  // Sales people see contact details, so without their own passcode they need the manager's, not the technicians'.
+  const expected =
+    role === "manager"
+      ? process.env.MANAGER_PASSCODE || process.env.APP_PASSCODE
+      : role === "sales"
+        ? process.env.SALES_PASSCODE || process.env.MANAGER_PASSCODE || process.env.APP_PASSCODE
+        : process.env.APP_PASSCODE;
   // With no passcode configured, only a local development machine may sign in. The live site refuses.
   if (!expected) return !process.env.VERCEL;
   return safeEqual(given.trim(), expected);
@@ -39,7 +47,7 @@ const LOCK_MINUTES = 10;
 // Checks a passcode with a lockout: after 5 wrong tries from one network address, sign-in for that
 // role is refused for 10 minutes. A site-wide cap of 60 wrong tries also applies, so spreading
 // guesses across many addresses does not help.
-export async function checkPasscode(role: "manager" | "tech", given: string): Promise<"ok" | "wrong" | "locked"> {
+export async function checkPasscode(role: Role, given: string): Promise<"ok" | "wrong" | "locked"> {
   const h = await headers();
   const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
   const who = `${role}:${ip}`;
@@ -96,4 +104,19 @@ export async function techSession(): Promise<Extract<Session, { role: "tech" }> 
 // layout: a browser that already has the layout asks the server for the inner page alone.
 export async function requireManager() {
   if (!(await managerSession())) redirect("/signin");
+}
+
+// Sales pages accept a sales sign-in or a manager sign-in. Returns the name to record against their work.
+export async function salesUser(): Promise<{ name: string; manager: boolean } | null> {
+  const s = await getSession();
+  if (s?.role === "sales") return { name: s.name, manager: false };
+  if (s?.role === "manager") return { name: "manager", manager: true };
+  return null;
+}
+
+// Every sales page and action calls this first.
+export async function requireSales(): Promise<{ name: string; manager: boolean }> {
+  const u = await salesUser();
+  if (!u) redirect("/sales/signin");
+  return u;
 }

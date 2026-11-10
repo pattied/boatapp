@@ -6,9 +6,14 @@ Boat cleaning operations app with three roles, chosen on the start screen.
 
 - **Manager (`/manager`)**: marinas with gates (codes and change history) and docks; crews and technicians; services with photo shot lists; customers with contacts, boats and recurring plans (fixed or seasonal frequency); a day and week schedule grouped by crew with bulk assign, move and cancel; weather days; a reschedule queue; flagged issues with customer notes, quotes and visibility; customer requests and sign-ups; billing CSV export; an activity log.
 - **Technician (`/crew`)**: signs in by name with the crew passcode and sees today's and tomorrow's jobs for their crew in walking order, with gate code and access notes. Takes before photos per angle, starts the job, takes after photos guided by the matching before photo, finishes with a preset customer message, skips with a reason, or flags an issue. Works without signal: everything queues on the phone and uploads when signal returns. Add it to the home screen.
+- **Sales (`/sales`)**: signs in by name with the sales passcode. Walks a dock and logs each boat (slip, name, what was noticed), working without signal: boats are saved on the phone and upload later. Adds leads from calls and walk-ups with the same details a customer record holds (contact, mailing address, boat, marina, dock and slip, text permission) plus notes. Leads are prospects on the manager's side. Sales people see leads and dock-walk boats only: no customer contact details, gate codes, schedule or messages.
 - **Customer**: a private boat page (`/portal/<link>`) with schedule, history, before and after photos (`/j/<link>`), flagged issues with quotes, and forms to order add-on services or pause cleanings. New customers sign up at `/signup`; the manager reviews and activates them.
 
 Marina, dock and slip are required for boats in a slip. A gate is required when the marina has gates, unless the dock already has one.
+
+## Customer notes
+
+Managers and sales people record what a customer tells them ("racing on the 21st", "family in town"), optionally with a date the boat must be clean by. Notes with a date appear on Needs attention 14 days ahead, with a plain statement of whether a cleaning is on the calendar in time and a link to schedule one. Notes are exportable.
 
 ## Messaging
 
@@ -53,6 +58,7 @@ This is an engineering implementation of the US rules (TCPA, the FCC's orders, t
 | `DATABASE_URL` | Yes | Postgres connection. Set automatically when the Neon database is connected |
 | `BLOB_READ_WRITE_TOKEN` | Yes | Photo storage. Set automatically when the Blob store is connected |
 | `APP_PASSCODE` | Yes | Technician passcode |
+| `SALES_PASSCODE` | Recommended | Sales passcode. Without it, sales people use the manager passcode |
 | `MANAGER_PASSCODE` | Strongly recommended | Manager passcode. Without it, technicians can open the manager pages with their passcode |
 | `MANAGER_PHONE` | Optional | Shown to technicians on urgent flags as a tap-to-call number |
 | `SESSION_SECRET` | Optional | Signs sign-in cookies. Defaults to a value derived from the passcodes; changing a passcode signs everyone out |

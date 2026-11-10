@@ -430,6 +430,125 @@ async function pickOption(select, labelText) {
   assert.match(await s.textContent("body"), /Reply STOP/);
   log("sign-up confirmation sent; customer preference page and terms page work");
 
+  // ---------- Sales role ----------
+  const salesCtx = await browser.newContext({ ...devices["iPhone 13"] });
+  const sl = await salesCtx.newPage();
+  pages.sl = sl;
+  sl.on("pageerror", (e) => errors.push(`sales: ${e.message}`));
+  await sl.goto(`${BASE}/`);
+  await sl.click('.role-card[href="/sales"]');
+  await sl.fill('input[name="name"]', "Robin");
+  await sl.fill('input[name="passcode"]', "crispclean");
+  await sl.click("button:has-text('Sign in')");
+  await sl.waitForSelector(".error"); // the technician passcode does not open Sales
+  await sl.fill('input[name="passcode"]', "sales-pass");
+  await sl.click("button:has-text('Sign in')");
+  await sl.waitForSelector("a:has-text('Walk a dock')");
+  // A sales sign-in does not open manager pages or manager data.
+  assert.ok((await sl.goto(`${BASE}/manager/customers`)).url().includes("/signin"), "sales cannot open manager pages");
+  assert.equal(await sl.evaluate(async () => (await fetch("/api/manager/export?what=contacts")).status), 401);
+  // Walk dock C: customers already there are listed by boat name only; log two boats, one with no signal.
+  await sl.goto(`${BASE}/sales/walk`);
+  await sl.click("a.chip:has-text('Dock C')");
+  await sl.waitForSelector("text=Already customers on this dock");
+  assert.ok(!(await sl.textContent("body")).includes("555-01"), "no customer phone numbers on the dock screen");
+  await sl.fill('input[name="slip"]', "C-2");
+  await sl.fill('input[name="boat_name"]', "Windward");
+  await sl.fill('input[name="condition"]', "Green waterline");
+  await sl.click("button:has-text('Save boat and go to the next')");
+  await sl.waitForSelector(".thread-row:has-text('C-2 · Windward')");
+  await salesCtx.setOffline(true);
+  await sl.fill('input[name="slip"]', "C-10");
+  await sl.fill('input[name="boat_name"]', "Kestrel");
+  await sl.click("button:has-text('Save boat and go to the next')");
+  await sl.waitForSelector(".notice.warn:has-text('1 boat(s) saved on this phone')");
+  await salesCtx.setOffline(false);
+  await sl.click("button:has-text('Upload now')", { timeout: 3000 }).catch(() => {}); // it also uploads by itself when signal returns
+  await sl.waitForSelector(".thread-row:has-text('C-10 · Kestrel')");
+  const order = await sl.locator("section:has(h2:has-text('Logged on this dock')) .thread-row strong").allTextContents();
+  assert.deepEqual(order, ["C-2 · Windward", "C-10 · Kestrel"], "slips sort the way people read them");
+  await noSideScroll(sl, "dock walk");
+  await shot(sl, "09-dock-walk");
+  // Logging the same slip again updates it instead of duplicating.
+  await sl.fill('input[name="slip"]', "c-2");
+  await sl.fill('input[name="condition"]', "Dull gelcoat too");
+  await sl.click("button:has-text('Save boat and go to the next')");
+  await sl.waitForSelector(".thread-row:has-text('Dull gelcoat too')");
+  assert.equal(await sl.locator(".thread-row:has-text('Windward')").count(), 1);
+  // The owner calls: add them from the boat, with a dated note. A typing mistake does not clear the form.
+  await sl.click(".thread-row:has-text('Windward')");
+  await sl.click("a:has-text('Add the owner')");
+  assert.equal(await sl.inputValue('input[name="boat_name"]'), "Windward");
+  assert.equal(await sl.inputValue('input[name="slip"]'), "C-2");
+  await sl.fill('input[name="name"]', "Avery Stone");
+  await sl.fill('input[name="phone"]', "415-555");
+  await sl.fill('textarea[name="note"]', "Racing in the Midwinters and wants the boat spotless.");
+  await sl.fill('input[name="needed_by"]', plus(today, 9));
+  await sl.click("button:has-text('Save lead')");
+  await sl.waitForSelector(".notice.bad:has-text('not a valid US number')");
+  assert.equal(await sl.inputValue('input[name="name"]'), "Avery Stone");
+  await sl.fill('input[name="phone"]', "415-555-0166");
+  await sl.check('input[name="sms_consent"]');
+  await sl.click("button:has-text('Save lead')");
+  await sl.waitForSelector(".notice.bad:has-text('Say how this person agreed')");
+  await sl.fill('input[name="consent_method"]', "Asked on the phone to get reminders by text");
+  await sl.click("button:has-text('Save lead')");
+  await sl.waitForURL(/\/sales\/leads\/[0-9a-f-]{36}/);
+  const leadUrl = sl.url().split("?")[0];
+  assert.match(await sl.textContent("#notes"), /Racing in the Midwinters/);
+  assert.match(await sl.textContent("#notes"), /Not a customer yet/);
+  assert.match(await sl.textContent("body"), /Clipper Yacht Harbor · Dock C · Slip C-2/);
+  await sl.goto(`${BASE}/sales/walk`);
+  await sl.click("a.chip:has-text('Dock C')");
+  assert.match(await sl.locator(".thread-row:has-text('Windward')").textContent(), /Owner added/);
+  // A marina the app has never seen.
+  await sl.goto(`${BASE}/sales/walk`);
+  const np = sl.locator("form", { has: sl.locator('input[name="marina_name"]') });
+  await np.locator('input[name="marina_name"]').fill("Schoonmaker Point");
+  await np.locator('input[name="dock_name"]').fill("A");
+  await Promise.all([sl.waitForURL(/marina=/), np.locator("button").click()]);
+  await sl.waitForSelector("h1:has-text('Dock A')");
+  // Sales cannot open an active customer's record.
+  await sl.goto(`${BASE}/sales/leads/${danaId}`);
+  assert.match(await sl.textContent("body"), /is now a customer/);
+  assert.ok(!(await sl.textContent("body")).includes("415-555-0111"));
+  log("sales role: dock walk (with no signal), lead from a boat, dated note, access limits");
+
+  // Manager: the lead is a prospect with its boat; convert, then the dated note shows whether a cleaning is booked in time.
+  await m.goto(`${BASE}/manager/customers?status=prospect`);
+  await m.click("a:has-text('Avery Stone')");
+  await m.waitForSelector("#notes:has-text('Racing in the Midwinters')");
+  const cv = m.locator("form", { has: m.locator("button:has-text('Make this person a customer')") });
+  await Promise.all([m.waitForLoadState("networkidle"), cv.locator("button").click()]);
+  await m.waitForSelector(".notice.good:has-text('Now a customer')");
+  await m.goto(`${BASE}/manager`);
+  const att = m.locator("section.attn", { hasText: "Customer dates coming up" });
+  assert.match(await att.textContent(), /Avery Stone/);
+  assert.match(await att.textContent(), /No cleaning is scheduled before/);
+  // Book a one-off cleaning before the date: the warning turns into a confirmation.
+  await m.click("section.attn a:has-text('Avery Stone')");
+  await m.click("#notes a:has-text('Schedule a cleaning')");
+  await m.fill('input[name="date"]', plus(today, 7));
+  await pickOption(m.locator('select[name="crew_id"]'), "Crew A");
+  await Promise.all([m.waitForLoadState("networkidle"), m.click("button:has-text('Create job')")]);
+  await ok(m);
+  await m.goto(`${BASE}/manager`);
+  assert.match(await m.locator("section.attn", { hasText: "Customer dates coming up" }).textContent(), /Cleaning on the calendar for/);
+  // Manager adds a plain note and finishes it.
+  await m.goto(danaUrl);
+  const nf = m.locator("#notes form", { has: m.locator("button:has-text('Save note')") });
+  await nf.locator('textarea[name="body"]').fill("Family in town for Thanksgiving.");
+  await Promise.all([m.waitForLoadState("networkidle"), nf.locator("button:has-text('Save note')").click()]);
+  await m.waitForSelector(".note:has-text('Family in town')");
+  await Promise.all([m.waitForLoadState("networkidle"), m.click(".note:has-text('Family in town') button:has-text('Mark done')")]);
+  await m.waitForSelector("#notes summary:has-text('1 finished note')");
+  const spottedCsv = await m.evaluate(async () => (await fetch("/api/manager/export?what=spotted")).text());
+  assert.match(spottedCsv, /Clipper Yacht Harbor,C,C-2,Windward,,,,Dull gelcoat too,owner_added,Avery Stone,415-555-0166/);
+  assert.match(spottedCsv, /Clipper Yacht Harbor,C,C-10,Kestrel/);
+  const notesCsv = await m.evaluate(async () => (await fetch("/api/manager/export?what=notes")).text());
+  assert.match(notesCsv, /Avery Stone,active,,Racing in the Midwinters/);
+  log("manager: lead converted, dated note checked against the schedule, notes and dock-walk exports");
+
   // Billing export
   const csv = await m.evaluate(async (month) => (await fetch(`/api/manager/billing?month=${month}`)).text(), today.slice(0, 7));
   assert.ok(csv.includes("Sea Breeze"), "billing CSV lists completed job");

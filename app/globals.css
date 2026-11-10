@@ -670,3 +670,21 @@ code { background: #eef2f6; padding: 1px 5px; border-radius: 5px; font-size: 13p
   .thread-row { flex-wrap: wrap; }
   .thread-meta { flex-direction: row; align-items: center; flex-basis: 100%; justify-content: space-between; }
 }
+
+/* Sales and notes */
+.sales-bar { position: sticky; top: 0; z-index: 20; background: var(--ink); color: #fff; }
+.sales-bar .eyebrow { color: #c9d6e3; }
+.sales-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 16px 4px; }
+.sales-top .linkish { color: #fff; }
+.sales-nav { display: flex; gap: 2px; padding: 0 8px 8px; overflow-x: auto; }
+.sales-nav a { color: #fff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 8px 10px; border-radius: 8px; white-space: nowrap; }
+.sales-nav a:hover { background: rgba(255, 255, 255, 0.12); }
+.sales-actions { display: grid; gap: 10px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-block; padding: 10px 16px; border-radius: 999px; background: var(--ink); color: #fff; text-decoration: none; font-weight: 700; }
+.chip.quiet { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+.walk-form input { font-size: 18px; }
+.note { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.note.done { opacity: 0.6; }
+.note-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.walk-form .linkish { color: var(--blue); }

@@ -16,6 +16,7 @@ export const NAV = [
   ["/manager/marinas", "Marinas"],
   ["/manager/crews", "Crews"],
   ["/manager/services", "Services"],
+  ["/sales", "Sales"],
   ["/manager/billing", "Exports"],
   ["/manager/activity", "Activity"],
 ] as const;

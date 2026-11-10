@@ -19,6 +19,8 @@ import {
   updatePlan,
 } from "../../actions";
 import { convertProspect, saveContactSettings, stopTexts } from "../../messaging-actions";
+import NotesCard from "@/components/NotesCard";
+import { notesFor } from "@/lib/notes";
 import { BoatFields, PlanFields } from "@/components/BoatPlanFields";
 import CopyButton from "@/components/CopyButton";
 import { Badge, Check, DeleteForm, Field, JobStatusBadge, Notice, PageHead, Select, Submit } from "@/components/ui";
@@ -94,6 +96,7 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
     "select at, channel, purpose, action, method from consent_log where customer_id = $1 order by at desc limit 8",
     [id],
   );
+  const notes = await notesFor(id);
   const hidden = (name: string, value: string) => <input type="hidden" name={name} value={value} />;
 
   return (
@@ -150,6 +153,8 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
           </form>
         </section>
       )}
+
+      <NotesCard customerId={id} notes={notes} boats={boats.map((b) => ({ id: b.id, name: b.name }))} back={back} today={todayLA()} jobLink={boats[0] ? `/manager/jobs/new?boat=${boats[0].id}` : undefined} />
 
       <details className="card" open={c.status === "prospect"}>
         <summary><h2>Mailing address, contact preference and permissions</h2></summary>

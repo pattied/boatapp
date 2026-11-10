@@ -355,6 +355,42 @@ create table if not exists suppressions (
   at timestamptz not null default now(),
   primary key (channel, address)
 )
+--;
+create table if not exists spotted_boats (
+  id uuid primary key default gen_random_uuid(),
+  client_id text unique,
+  marina_id uuid not null references marinas(id) on delete cascade,
+  dock_id uuid references docks(id) on delete set null,
+  slip text not null default '',
+  boat_name text not null default '',
+  make_model text not null default '',
+  length_ft int,
+  boat_type text not null default '',
+  condition text not null default '',
+  status text not null default 'new' check (status in ('new', 'contacted', 'owner_added', 'not_interested', 'already_customer')),
+  customer_id uuid references customers(id) on delete set null,
+  spotted_by text not null default '',
+  spotted_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+)
+--;
+create index if not exists spotted_boats_place on spotted_boats (marina_id, dock_id)
+--;
+create table if not exists customer_notes (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade,
+  boat_id uuid references boats(id) on delete set null,
+  body text not null,
+  needed_by date,
+  created_by text not null default '',
+  created_at timestamptz not null default now(),
+  done_at timestamptz,
+  done_by text not null default ''
+)
+--;
+create index if not exists customer_notes_customer on customer_notes (customer_id, created_at)
+--;
+create index if not exists customer_notes_open on customer_notes (needed_by) where done_at is null
 `;
 
 // Starting catalog, inserted once when the services table is empty.
