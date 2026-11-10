@@ -36,6 +36,10 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
        and j.scheduled_date >= $1 and not exists (select 1 from photos p where p.job_id = j.id and p.kind = 'after')
        order by j.completed_at desc`, [addDays(today, -7)]),
   ]);
+  const [msg] = await q<{ unread: number; approval: number }>(
+    `select (select count(*)::int from messages where direction = 'in' and read_at is null) as unread,
+            (select count(*)::int from messages where status = 'pending_approval') as approval`,
+  );
   const t = Object.fromEntries(todayJobs.map((r) => [r.status, r.n]));
   const total = todayJobs.reduce((s, r) => s + r.n, 0);
   const nothing =
@@ -116,6 +120,12 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
       )}
 
       <div className="tiles">
+        <Link href="/manager/messages" className="tile-link">
+          <span className="big">{msg.unread}</span> new message(s) from customers
+        </Link>
+        <Link href="/manager/messages?tab=approval" className="tile-link">
+          <span className="big">{msg.approval}</span> message(s) waiting for approval
+        </Link>
         <Link href="/manager/requests" className="tile-link">
           <span className="big">{signups.length}</span> sign-ups to review
         </Link>

@@ -253,6 +253,108 @@ create index if not exists requests_customer on requests (customer_id)
 create index if not exists requests_status on requests (status)
 --;
 create index if not exists crew_events_job on crew_events (job_id)
+--;
+alter table customers add column if not exists address1 text not null default ''
+--;
+alter table customers add column if not exists address2 text not null default ''
+--;
+alter table customers add column if not exists city text not null default ''
+--;
+alter table customers add column if not exists state text not null default ''
+--;
+alter table customers add column if not exists postal_code text not null default ''
+--;
+alter table customers add column if not exists contact_pref text not null default 'text'
+--;
+alter table customers add column if not exists promo_sms_consent boolean not null default false
+--;
+alter table customers add column if not exists promo_sms_consent_at timestamptz
+--;
+alter table customers add column if not exists sms_opted_out_at timestamptz
+--;
+alter table customers add column if not exists email_opted_out_at timestamptz
+--;
+alter table customers add column if not exists unsubscribe_token text
+--;
+alter table customers add column if not exists interest text not null default ''
+--;
+alter table jobs add column if not exists customer_confirmed_at timestamptz
+--;
+create table if not exists message_templates (
+  id uuid primary key default gen_random_uuid(),
+  key text unique,
+  name text not null,
+  purpose text not null default 'service' check (purpose in ('service', 'marketing')),
+  sms_body text not null default '',
+  email_subject text not null default '',
+  email_body text not null default '',
+  auto_send boolean not null default true,
+  active boolean not null default true,
+  sort int not null default 100,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+)
+--;
+create table if not exists messages (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid references customers(id) on delete cascade,
+  channel text not null check (channel in ('sms', 'email')),
+  direction text not null check (direction in ('out', 'in')),
+  purpose text not null default 'service' check (purpose in ('service', 'marketing')),
+  template_id uuid references message_templates(id) on delete set null,
+  job_id uuid references jobs(id) on delete set null,
+  batch_id uuid,
+  to_addr text not null default '',
+  from_addr text not null default '',
+  subject text not null default '',
+  body text not null default '',
+  status text not null check (status in
+    ('pending_approval', 'queued', 'sending', 'sent', 'delivered', 'failed', 'blocked', 'cancelled', 'received')),
+  block_reason text not null default '',
+  provider text not null default '',
+  provider_id text not null default '',
+  error text not null default '',
+  dedupe_key text unique,
+  manual boolean not null default false,
+  created_by text not null default 'system',
+  approved_by text not null default '',
+  send_after timestamptz,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,
+  read_at timestamptz
+)
+--;
+alter table messages add column if not exists claimed_at timestamptz
+--;
+create index if not exists messages_customer on messages (customer_id, created_at)
+--;
+create index if not exists messages_status on messages (status)
+--;
+create index if not exists messages_provider on messages (provider_id)
+--;
+create table if not exists consent_log (
+  id bigserial primary key,
+  customer_id uuid references customers(id) on delete set null,
+  customer_name text not null default '',
+  address text not null default '',
+  channel text not null check (channel in ('sms', 'email')),
+  purpose text not null check (purpose in ('service', 'marketing', 'all')),
+  action text not null check (action in ('granted', 'revoked')),
+  method text not null default '',
+  wording text not null default '',
+  actor text not null default '',
+  at timestamptz not null default now()
+)
+--;
+create index if not exists consent_log_customer on consent_log (customer_id)
+--;
+create table if not exists suppressions (
+  channel text not null check (channel in ('sms', 'email')),
+  address text not null,
+  reason text not null default '',
+  at timestamptz not null default now(),
+  primary key (channel, address)
+)
 `;
 
 // Starting catalog, inserted once when the services table is empty.
@@ -274,4 +376,24 @@ export const DEFAULT_SERVICES: { name: string; description: string; addOn: boole
   { name: "Extra wash", description: "One-off exterior wash, for example before an outing", addOn: true, price: "", sort: 10 },
   ...ADDED_SERVICES_2026_11,
   { name: "Canvas and cushion clean", description: "Bimini, dodger and cushions", addOn: true, price: "", sort: 30 },
+];
+
+// Changes that must run exactly once on an existing database. Each has a key recorded in app_meta.
+export const ONE_TIME: { key: string; statements: string[] }[] = [
+  {
+    key: "customers_status_prospect",
+    statements: [
+      "alter table customers drop constraint if exists customers_status_check",
+      "alter table customers add constraint customers_status_check check (status in ('prospect', 'pending', 'active', 'paused', 'inactive', 'declined'))",
+    ],
+  },
+  {
+    // Customers who agreed to texts before this release keep that consent on record.
+    key: "consent_log_backfill",
+    statements: [
+      `insert into consent_log (customer_id, customer_name, address, channel, purpose, action, method, wording, actor, at)
+       select id, name, phone, 'sms', 'service', 'granted', 'sign-up form', consent_text, 'customer', coalesce(consent_at, created_at)
+       from customers where sms_consent`,
+    ],
+  },
 ];

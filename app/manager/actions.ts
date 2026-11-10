@@ -7,6 +7,8 @@ import { one, q, tx, type Q } from "@/lib/db";
 import { field, flag } from "@/lib/http";
 import { isUuid, newPublicId } from "@/lib/ids";
 import { generateJobs, pauseBoat, regeneratePlan, resumeBoat } from "@/lib/schedule";
+import { after } from "next/server";
+import { deliverDue, notifySafely } from "@/lib/messaging/send";
 import { requireManager } from "@/lib/session";
 import { deleteFiles } from "@/lib/storage";
 import { berthProblem } from "@/lib/repo";
@@ -364,11 +366,26 @@ export async function updateCustomer(fd: FormData) {
   const name = field(fd, "name", 100);
   if (!isUuid(id) || !name) fail(fd, "Enter the customer's name.");
   const status = field(fd, "status", 20);
+  const phone = field(fd, "phone", 30);
+  const before = await one<{ phone: string; sms_consent: boolean; promo_sms_consent: boolean }>("select phone, sms_consent, promo_sms_consent from customers where id = $1", [id]);
+  const digits = (v: string) => v.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  const phoneChanged = Boolean(before) && digits(before!.phone) !== digits(phone);
   await q(
     `update customers set name = $2, phone = $3, email = $4, notes = $5, marketing_consent = $6,
        status = case when $7 in ('active', 'inactive') then $7 else status end where id = $1`,
-    [id, name, field(fd, "phone", 30), field(fd, "email", 120), field(fd, "notes", 1000), flag(fd, "marketing_consent"), status],
+    [id, name, phone, field(fd, "email", 120), field(fd, "notes", 1000), flag(fd, "marketing_consent"), status],
   );
+  // Permission to text belongs to a phone number. A new number starts with none, and no opt-out carried over.
+  if (phoneChanged && before && (before.sms_consent || before.promo_sms_consent)) {
+    await q("update customers set sms_consent = false, promo_sms_consent = false, promo_sms_consent_at = null, sms_opted_out_at = null where id = $1", [id]);
+    await q(
+      `insert into consent_log (customer_id, customer_name, address, channel, purpose, action, method, actor)
+       values ($1, $2, $3, 'sms', 'all', 'revoked', 'Phone number changed; permission must be given again for the new number', $4)`,
+      [id, name, before.phone, ACTOR],
+    );
+  } else if (phoneChanged) {
+    await q("update customers set sms_opted_out_at = null where id = $1", [id]);
+  }
   await audit(q, ACTOR, "update", "customer", id, { status });
   if (status === "active") await generateJobs(q);
   done(fd, "Customer saved.");
@@ -762,7 +779,7 @@ export async function approveRequest(fd: FormData) {
   if (!isDate(date)) fail(fd, "Choose the date for this service.");
   if (!r.boat_id) fail(fd, "The request has no boat.");
   const names = await q<{ name: string }>("select name from services where id = any($1::uuid[]) order by sort", [r.service_ids]);
-  await tx(async (t) => {
+  const jobId = await tx(async (t) => {
     const job = (
       await t<{ id: string }>(
         `insert into jobs (public_id, boat_id, service_id, crew_id, scheduled_date, origin, manager_notes)
@@ -779,7 +796,15 @@ export async function approveRequest(fd: FormData) {
     )[0];
     await t("update requests set status = 'approved', job_id = $2 where id = $1", [id, job.id]);
     await audit(t, ACTOR, "approve", "request", id, { job: job.id, date });
+    return job.id;
   });
+  const owner = await one<{ customer_id: string }>("select customer_id from boats where id = $1", [r.boat_id]);
+  if (owner) {
+    await notifySafely("request_approved", {
+      customerId: owner.customer_id, jobId, vars: { service: names.map((n) => n.name).join(", ") || "service" }, dedupeKey: `request:${id}`,
+    });
+    after(() => deliverDue());
+  }
   done(fd, `Approved and scheduled for ${date}.`);
 }
 

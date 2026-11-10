@@ -9,12 +9,14 @@ export const NAV = [
   ["/manager/schedule", "Schedule"],
   ["/manager/reschedule", "Reschedule"],
   ["/manager/customers", "Customers"],
+  ["/manager/messages", "Messages"],
+  ["/manager/templates", "Templates"],
   ["/manager/requests", "Requests"],
   ["/manager/issues", "Issues"],
   ["/manager/marinas", "Marinas"],
   ["/manager/crews", "Crews"],
   ["/manager/services", "Services"],
-  ["/manager/billing", "Billing export"],
+  ["/manager/billing", "Exports"],
   ["/manager/activity", "Activity"],
 ] as const;
 

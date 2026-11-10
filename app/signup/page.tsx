@@ -4,13 +4,11 @@ import SignupShell from "@/components/SignupShell";
 import { Select } from "@/components/ui";
 import { getConfig } from "@/lib/config";
 import { q } from "@/lib/db";
+import { MARKETING_SMS_WORDING, SERVICE_SMS_WORDING } from "@/lib/messaging/compliance";
 import { BERTH_TYPES } from "@/lib/repo";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign up for boat cleaning" };
-
-const CONSENT_TEXT =
-  "I agree to receive text messages about my boat cleanings (reminders, confirmations and photo links). Message and data rates may apply. Reply STOP to opt out.";
 
 // Public sign-up. Gate codes are never shown here: only names.
 export default async function SignUp() {
@@ -39,6 +37,18 @@ export default async function SignUp() {
             <label className="field"><span>Name *</span><input name="name" required autoComplete="name" /></label>
             <label className="field"><span>Mobile phone *</span><input name="phone" type="tel" required autoComplete="tel" /></label>
             <label className="field"><span>Email</span><input name="email" type="email" autoComplete="email" /></label>
+            <details>
+              <summary className="small">Add a mailing address (optional)</summary>
+              <div className="stack">
+                <label className="field"><span>Street address</span><input name="address1" autoComplete="address-line1" /></label>
+                <label className="field"><span>Apartment, suite or PO box</span><input name="address2" autoComplete="address-line2" /></label>
+                <div className="two">
+                  <label className="field"><span>City</span><input name="city" autoComplete="address-level2" /></label>
+                  <label className="field"><span>State</span><input name="state" autoComplete="address-level1" maxLength={20} /></label>
+                </div>
+                <label className="field"><span>ZIP</span><input name="postal_code" autoComplete="postal-code" inputMode="numeric" /></label>
+              </div>
+            </details>
           </section>
 
           <section className="card stack">
@@ -94,11 +104,26 @@ export default async function SignUp() {
           </section>
 
           <section className="card stack">
+            <h2>How should we reach you?</h2>
+            <label className="field">
+              <span>Reminders, confirmations and photo links</span>
+              <select name="contact_pref" defaultValue="text">
+                <option value="text">Text me</option>
+                <option value="email">Email me</option>
+              </select>
+            </label>
             <label className="check">
               <input type="checkbox" name="sms_consent" />
-              <span className="small">{CONSENT_TEXT}</span>
+              <span className="small">{SERVICE_SMS_WORDING}</span>
             </label>
-            <input type="hidden" name="consent_text" value={CONSENT_TEXT} />
+            <label className="check">
+              <input type="checkbox" name="promo_sms_consent" />
+              <span className="small">{MARKETING_SMS_WORDING}</span>
+            </label>
+            <p className="muted small">
+              Both boxes are optional. If you leave the first one empty we will email you instead, so please add your email above.
+              See our <Link href="/sms-terms">text messaging terms and privacy</Link>.
+            </p>
             <label className="check">
               <input type="checkbox" name="marketing_consent" />
               <span className="small">You may feature photos of my boat on social media.</span>

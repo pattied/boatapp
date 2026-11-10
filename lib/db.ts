@@ -1,6 +1,7 @@
 import path from "path";
 import { promises as fs } from "fs";
-import { ADDED_SERVICES_2026_11, DEFAULT_SERVICES, RETIRED_SERVICES_2026_11, SCHEMA } from "./schema";
+import { ADDED_SERVICES_2026_11, DEFAULT_SERVICES, ONE_TIME, RETIRED_SERVICES_2026_11, SCHEMA } from "./schema";
+import { DEFAULT_TEMPLATES } from "./messaging/templates";
 
 // One Postgres interface for the whole app. In production it connects to the database Vercel
 // provides (DATABASE_URL or POSTGRES_URL, for example Neon). On a developer machine with no
@@ -104,6 +105,20 @@ async function migrate(db: Db) {
       // Case-sensitive on purpose: "Full detail" is retired, the new "Full Detail" is not.
       await q("update services set active = false where name = any($1::text[])", [RETIRED_SERVICES_2026_11]);
       await q("insert into app_meta (key, value) values ('services_2026_11', 'done')");
+    }
+    for (const m of ONE_TIME) {
+      const ran = await q("select 1 from app_meta where key = $1", [m.key]);
+      if (ran.length) continue;
+      for (const stmt of m.statements) await q(stmt);
+      await q("insert into app_meta (key, value) values ($1, 'done')", [m.key]);
+    }
+    // Built-in message templates are added once each; later edits by the manager are never overwritten.
+    for (const t of DEFAULT_TEMPLATES) {
+      await q(
+        `insert into message_templates (key, name, purpose, sms_body, email_subject, email_body, auto_send, active, sort)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict (key) do nothing`,
+        [t.key, t.name, t.purpose, t.sms, t.subject, t.email, t.autoSend, t.active, t.sort],
+      );
     }
   });
 }

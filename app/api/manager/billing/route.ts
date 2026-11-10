@@ -1,13 +1,7 @@
+import { csvFile } from "@/lib/csv";
 import { q } from "@/lib/db";
 import { addDays } from "@/lib/dates";
 import { managerSession } from "@/lib/session";
-
-const csv = (v: unknown) => {
-  let s = v === null || v === undefined ? "" : String(v);
-  // Stop spreadsheet programs from running a cell as a formula.
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 export async function GET(req: Request) {
   if (!(await managerSession())) return new Response("Sign in as a manager.", { status: 401 });
@@ -25,12 +19,5 @@ export async function GET(req: Request) {
     [from, end],
   );
   const cols = ["scheduled_date", "customer", "email", "phone", "boat", "service", "status", "origin", "crew", "completed_at", "partial_reason", "skip_reason", "cancel_reason", "manager_notes"];
-  const body = [cols.join(","), ...rows.map((r) => cols.map((c) => csv(r[c])).join(","))].join("\n");
-  return new Response(body, {
-    headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="visits-${month}.csv"`,
-      "cache-control": "no-store",
-    },
-  });
+  return csvFile(`visits-${month}.csv`, cols.map((c) => [c, c] as [string, string]), rows);
 }

@@ -18,6 +18,7 @@ import {
   updateCustomer,
   updatePlan,
 } from "../../actions";
+import { convertProspect, saveContactSettings, stopTexts } from "../../messaging-actions";
 import { BoatFields, PlanFields } from "@/components/BoatPlanFields";
 import CopyButton from "@/components/CopyButton";
 import { Badge, Check, DeleteForm, Field, JobStatusBadge, Notice, PageHead, Select, Submit } from "@/components/ui";
@@ -33,6 +34,9 @@ type Customer = {
   id: string; name: string; phone: string; email: string; status: string; notes: string; portal_token: string;
   source: string; marketing_consent: boolean; sms_consent: boolean; consent_text: string; consent_at: string | null;
   requested_plan: string; created_at: string;
+  address1: string; address2: string; city: string; state: string; postal_code: string; contact_pref: string;
+  promo_sms_consent: boolean; promo_sms_consent_at: string | null; sms_opted_out_at: string | null; email_opted_out_at: string | null;
+  interest: string;
 };
 type Boat = {
   id: string; name: string; make_model: string; length_ft: number | null; hull_color: string; marina_id: string | null;
@@ -85,11 +89,17 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
     ),
   ]);
   const back = `/manager/customers/${id}`;
+  const [{ n: unread }] = await q<{ n: number }>("select count(*)::int as n from messages where customer_id = $1 and direction = 'in' and read_at is null", [id]);
+  const consentLog = await q<{ at: string; channel: string; purpose: string; action: string; method: string }>(
+    "select at, channel, purpose, action, method from consent_log where customer_id = $1 order by at desc limit 8",
+    [id],
+  );
   const hidden = (name: string, value: string) => <input type="hidden" name={name} value={value} />;
 
   return (
     <>
       <PageHead title={c.name} sub={<>{c.phone || "No phone"} · {c.email || "No email"} · <Badge tone={c.status === "active" ? "good" : c.status === "pending" ? "warn" : "idle"}>{c.status}</Badge></>}>
+        <Link className="btn primary small-btn" href={`/manager/messages/${id}`}>Message{unread ? ` (${unread} new)` : ""}</Link>
         <CopyButton text={`/portal/${c.portal_token}`} absolute label="Copy customer portal link" />
         <a className="btn small-btn" href={`/portal/${c.portal_token}`} target="_blank" rel="noreferrer">Open portal</a>
         <Link className="btn small-btn" href={`/manager/jobs/new?boat=${boats[0]?.id ?? ""}`}>New one-off job</Link>
@@ -126,6 +136,63 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
         </section>
       )}
 
+      {c.status === "prospect" && (
+        <section className="card stack attn">
+          <h2>Prospect</h2>
+          <p className="small">
+            Not a customer yet.{c.interest ? ` Interested in: ${c.interest}.` : ""}{c.source ? ` Source: ${c.source}.` : ""} Added {fmtDateTime(c.created_at)}.
+          </p>
+          <form action={convertProspect} className="row wrap">
+            {hidden("id", id)}
+            {hidden("back", back)}
+            <Submit>Make this person a customer</Submit>
+            <span className="muted small">Then add their boat and cleaning plan below.</span>
+          </form>
+        </section>
+      )}
+
+      <details className="card" open={c.status === "prospect"}>
+        <summary><h2>Mailing address, contact preference and permissions</h2></summary>
+        <form action={saveContactSettings} className="form-grid">
+          {hidden("id", id)}
+          {hidden("back", back)}
+          <Field label="Street address" name="address1" defaultValue={c.address1} wide />
+          <Field label="Apartment, suite or PO box" name="address2" defaultValue={c.address2} wide />
+          <Field label="City" name="city" defaultValue={c.city} />
+          <Field label="State" name="state" defaultValue={c.state} />
+          <Field label="ZIP" name="postal_code" defaultValue={c.postal_code} />
+          <Select label="Prefers to hear from us by" name="contact_pref" defaultValue={c.contact_pref} options={[{ value: "text", label: "Text" }, { value: "email", label: "Email" }, { value: "none", label: "No automatic messages" }]} />
+          <div className="wide stack tight">
+            {c.sms_opted_out_at ? (
+              <p className="notice warn">This number opted out of all texts on {fmtDateTime(c.sms_opted_out_at)}. Only the customer can restart them, by texting START.</p>
+            ) : (
+              <>
+                <Check label={`Agreed to texts about their service${c.sms_consent && c.consent_at ? ` (since ${fmtDateTime(c.consent_at)})` : ""}`} name="sms_consent" defaultChecked={c.sms_consent} />
+                <Check label={`Agreed to marketing texts${c.promo_sms_consent && c.promo_sms_consent_at ? ` (since ${fmtDateTime(c.promo_sms_consent_at)})` : ""}`} name="promo_sms_consent" defaultChecked={c.promo_sms_consent} />
+                <Check label="I have their marketing-text consent in writing and can produce it" name="promo_written" defaultChecked={c.promo_sms_consent} />
+              </>
+            )}
+            {c.email_opted_out_at ? (
+              <Check label={`Unsubscribed from marketing email on ${fmtDateTime(c.email_opted_out_at)}. Tick only if the customer asked to resubscribe.`} name="email_resubscribe" />
+            ) : (
+              <Check label="Customer asked to stop marketing email" name="email_opt_out" />
+            )}
+          </div>
+          <Field label="How and when they agreed (required when adding a permission)" name="consent_method" placeholder="Signed service agreement, Nov 3" wide />
+          <div className="wide btn-row tight">
+            <Submit>Save contact settings</Submit>
+            {!c.sms_opted_out_at && c.phone && <Submit tone="quiet" formAction={stopTexts}>Customer asked us to stop texting</Submit>}
+          </div>
+        </form>
+        {consentLog.length > 0 && (
+          <ul className="plain-list small muted">
+            {consentLog.map((e, i) => (
+              <li key={i}>{fmtDateTime(e.at)}: {e.purpose === "all" ? "all" : e.purpose} {e.channel === "sms" ? "texts" : "email"} {e.action}. {e.method}</li>
+            ))}
+          </ul>
+        )}
+      </details>
+
       <div className="two-col">
         <details className="card">
           <summary><h2>Customer details</h2></summary>
@@ -135,7 +202,7 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
             <Field label="Name" name="name" defaultValue={c.name} required />
             <Field label="Mobile phone" name="phone" defaultValue={c.phone} />
             <Field label="Email" name="email" defaultValue={c.email} />
-            {c.status !== "pending" && (
+            {c.status !== "pending" && c.status !== "prospect" && (
               <Select label="Status" name="status" defaultValue={c.status === "inactive" ? "inactive" : "active"} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive (no new visits)" }]} />
             )}
             <label className="field wide"><span>Internal notes</span><textarea name="notes" defaultValue={c.notes} rows={2} /></label>

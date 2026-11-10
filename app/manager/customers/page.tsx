@@ -6,13 +6,13 @@ import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ q?: string; status?: string; ok?: string; error?: string }>;
 
-const TONE: Record<string, string> = { active: "good", pending: "warn", paused: "warn", inactive: "idle", declined: "idle" };
+const TONE: Record<string, string> = { prospect: "idle", active: "good", pending: "warn", paused: "warn", inactive: "idle", declined: "idle" };
 
 export default async function Customers({ searchParams }: { searchParams: SP }) {
   await requireManager();
   const sp = await searchParams;
   const term = (sp.q ?? "").trim();
-  const status = ["active", "pending", "inactive", "declined"].includes(sp.status ?? "") ? sp.status! : "";
+  const status = ["active", "pending", "inactive", "declined", "prospect"].includes(sp.status ?? "") ? sp.status! : "";
   const rows = await q<{
     id: string;
     name: string;
@@ -29,22 +29,25 @@ export default async function Customers({ searchParams }: { searchParams: SP }) 
           where b.customer_id = c.id and j.status = 'scheduled' and j.scheduled_date >= current_date) as next_visit,
        (select count(*)::int from issues i join boats b on b.id = i.boat_id where b.customer_id = c.id and i.status in ('open', 'quoted')) as open_issues
      from customers c
-     where ($1 = '' or c.name ilike '%' || $1 || '%' or c.phone ilike '%' || $1 || '%'
+     where ($1 = '' or c.name ilike '%' || $1 || '%' or c.phone ilike '%' || $1 || '%' or c.email ilike '%' || $1 || '%'
             or exists (select 1 from boats b where b.customer_id = c.id and b.name ilike '%' || $1 || '%'))
-       and ($2 = '' or c.status = $2)
+       and (case when $2 = '' then c.status <> 'prospect' else c.status = $2 end)
      order by c.status = 'pending' desc, c.name`,
     [term, status],
   );
   return (
     <>
-      <PageHead title="Customers" sub={`${rows.length} shown`}>
+      <PageHead title={status === "prospect" ? "Prospects" : "Customers"} sub={`${rows.length} shown`}>
+        <Link className="btn" href={status === "prospect" ? "/manager/customers" : "/manager/customers?status=prospect"}>{status === "prospect" ? "Customers" : "Prospects"}</Link>
+        <Link className="btn" href="/manager/prospects/new">New prospect</Link>
         <Link className="btn primary" href="/manager/customers/new">New customer</Link>
       </PageHead>
       <Notice ok={sp.ok} error={sp.error} />
       <form className="toolbar" method="get">
-        <input className="search" name="q" defaultValue={term} placeholder="Search name, phone or boat" />
+        <input className="search" name="q" defaultValue={term} placeholder="Search name, phone, email or boat" />
         <select name="status" defaultValue={status} className="search narrow">
-          <option value="">All statuses</option>
+          <option value="">All customers</option>
+          <option value="prospect">Prospects</option>
           <option value="active">Active</option>
           <option value="pending">Pending sign-up</option>
           <option value="inactive">Inactive</option>
@@ -60,9 +63,9 @@ export default async function Customers({ searchParams }: { searchParams: SP }) 
               <strong>{c.name}</strong>
               <Badge tone={TONE[c.status] ?? "idle"}>{c.status === "pending" ? "Pending sign-up" : c.status}</Badge>
             </div>
-            <div className="muted small">{c.boats ?? "No boats"}</div>
+            <div className="muted small">{c.boats ?? (c.status === "prospect" ? c.phone || "No phone" : "No boats")}</div>
             <div className="small">
-              {c.next_visit ? `Next visit ${fmtDay(c.next_visit)}` : "No upcoming visit"}
+              {c.status === "prospect" ? "Prospect" : c.next_visit ? `Next visit ${fmtDay(c.next_visit)}` : "No upcoming visit"}
               {c.open_issues ? ` · ${c.open_issues} open issue(s)` : ""}
             </div>
           </Link>

@@ -10,9 +10,41 @@ Boat cleaning operations app with three roles, chosen on the start screen.
 
 Marina, dock and slip are required for boats in a slip. A gate is required when the marina has gates, unless the dock already has one.
 
-## Not in this version
+## Messaging
 
-Text messages (reminders, YES/NO confirmations, photo links), social media posting and payments. Customer links are copied and sent by hand.
+Texts and email to customers and prospects, with templates, an approval queue, two-way conversations and exports.
+Payments and social media posting are not in this app.
+
+**Providers are swappable.** `lib/messaging/providers.ts` holds two small interfaces. Nothing else in the app names a vendor.
+
+| Setting | Values | Notes |
+| --- | --- | --- |
+| `SMS_PROVIDER` | `test` (default), `twilio`, `http` | `test` records messages and sends nothing |
+| `EMAIL_PROVIDER` | `test` (default), `resend`, `http` | |
+| `BUSINESS_ADDRESS` | Postal address | Required before any marketing email will send |
+| `APP_URL` | `https://your-domain` | Used in links and provider callbacks. Defaults to the Vercel production address |
+| `EMAIL_FROM`, `EMAIL_REPLY_TO` | Addresses | Replies to email go to `EMAIL_REPLY_TO`, not into the app, unless the `http` option posts them back |
+| `SMS_FROM` | Your sending number | |
+| `CRON_SECRET` | Any long random value | Protects the daily job at `/api/cron` |
+| Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID` (or `SMS_FROM`) | Point the number's incoming-message webhook at `/api/messaging/inbound/twilio` |
+| Resend | `RESEND_API_KEY` | |
+| `http` option | `SMS_HTTP_URL`, `SMS_HTTP_TOKEN`, `EMAIL_HTTP_URL`, `EMAIL_HTTP_TOKEN`, `MESSAGING_INBOUND_SECRET` | Vendor-free: the app posts JSON to your address; replies are posted to `/api/messaging/inbound/http` with `Authorization: Bearer <MESSAGING_INBOUND_SECRET>` as `{from, to, body, id}` |
+
+The Twilio and Resend adapters follow those services' published interfaces but have not been run against live accounts. Send a test to your own phone and inbox before relying on them.
+
+**Rules enforced in code** (`lib/messaging/compliance.ts`, checked when a message is created and again when it is sent):
+
+- Service texts need recorded consent to texts. Marketing texts need separate written consent. Having a phone number is not consent.
+- STOP, similar words and plain-language requests opt the number out immediately, cancel anything waiting, and add it to a do-not-text list that survives deleting and re-adding the person. Only the customer can undo it (START).
+- No texts from 9 pm to 8 am Pacific; they wait until 8 am. A typed reply within an hour of the customer's own text is the exception.
+- Every text names the business. The first text to a number and every marketing text say how to opt out.
+- Consent belongs to a phone number: changing a customer's number clears their text permissions.
+- Marketing email carries the postal address and an unsubscribe link, and honors unsubscribes at once.
+- Every grant and withdrawal of consent is recorded with wording, method, time and who recorded it.
+
+This is an engineering implementation of the US rules (TCPA, the FCC's orders, the carriers' CTIA principles, CAN-SPAM). It is not legal advice. Have counsel review the consent wording and `/sms-terms` before sending marketing texts. US carriers also require the business and its message types to be registered (A2P 10DLC) through whichever provider you choose; unregistered texts are filtered.
+
+**Daily job.** `vercel.json` schedules `/api/cron` once a day (17:00 UTC, 9 am Pacific standard time) to queue next-day reminders and deliver anything waiting. Opening the manager pages does the same work, so a missed run is caught up.
 
 ## Settings (Vercel → Project → Settings → Environment Variables)
 
@@ -42,7 +74,7 @@ With no `DATABASE_URL`, the app runs an embedded Postgres in `.data/pg` and stor
 
 ## Tests
 
-- `npm test`: scheduling and database tests.
+- `npm test`: scheduling, database and messaging-rule tests.
 - `npm run build && npm run test:e2e`: starts the built app on a fresh local database and drives a manager, a technician phone and a customer phone through every flow, including offline work, deletes, sign-in lockout and access checks. Needs Playwright with Chromium.
 
 ## Sign-in rules

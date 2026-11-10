@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requestPause, requestService } from "../actions";
+import { requestPause, requestService, savePreferences } from "../actions";
 import PortalRemember from "@/components/PortalRemember";
 import { Badge, Notice } from "@/components/ui";
 import { getConfig } from "@/lib/config";
 import { addDays, fmtDay, fmtDateTime, todayLA } from "@/lib/dates";
 import { one, q } from "@/lib/db";
 import { isPublicId } from "@/lib/ids";
+import { MARKETING_SMS_WORDING, SERVICE_SMS_WORDING } from "@/lib/messaging/compliance";
 import { JOB_SELECT, locationText, type JobRow } from "@/lib/repo";
 import { srcFor } from "@/lib/storage";
 
@@ -23,7 +24,10 @@ export default async function Portal({ params, searchParams }: Props) {
   const { token } = await params;
   const sp = await searchParams;
   if (!isPublicId(token)) notFound();
-  const c = await one<{ id: string; name: string; status: string }>("select id, name, status from customers where portal_token = $1", [token]);
+  const c = await one<{ id: string; name: string; status: string; phone: string; email: string; contact_pref: string; sms_consent: boolean; promo_sms_consent: boolean; sms_opted_out_at: string | null; email_opted_out_at: string | null }>(
+    "select id, name, status, phone, email, contact_pref, sms_consent, promo_sms_consent, sms_opted_out_at, email_opted_out_at from customers where portal_token = $1",
+    [token],
+  );
   if (!c || c.status === "declined") notFound();
   const today = todayLA();
   const { businessName } = getConfig();
@@ -206,6 +210,34 @@ export default async function Portal({ params, searchParams }: Props) {
           )}
         </section>
       )}
+      <section className="stack" id="contact">
+        <h2>How we contact you</h2>
+        <form action={savePreferences} className="card stack">
+          <input type="hidden" name="token" value={token} />
+          <p className="muted small">On file: {c.phone || "no mobile number"} · {c.email || "no email"}. To change these, reply to any of our messages.</p>
+          <label className="field">
+            <span>Reminders, confirmations and photo links</span>
+            <select name="contact_pref" defaultValue={c.contact_pref === "email" ? "email" : "text"}>
+              <option value="text">Text me</option>
+              <option value="email">Email me</option>
+            </select>
+          </label>
+          <label className="check">
+            <input type="checkbox" name="sms_consent" defaultChecked={c.sms_consent && !c.sms_opted_out_at} />
+            <span className="small">{SERVICE_SMS_WORDING}</span>
+          </label>
+          <label className="check">
+            <input type="checkbox" name="promo_sms_consent" defaultChecked={c.promo_sms_consent && !c.sms_opted_out_at} />
+            <span className="small">{MARKETING_SMS_WORDING}</span>
+          </label>
+          <label className="check">
+            <input type="checkbox" name="email_news" defaultChecked={!c.email_opted_out_at} />
+            <span className="small">Email me occasional offers and news. Untick to unsubscribe.</span>
+          </label>
+          <button className="btn">Save</button>
+          <p className="muted small">You can also reply STOP to any text. <Link href="/sms-terms">Text messaging terms and privacy</Link>.</p>
+        </form>
+      </section>
       <Link href="/" className="manager-link">Switch role</Link>
     </main>
   );

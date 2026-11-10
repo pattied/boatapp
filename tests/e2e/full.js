@@ -307,6 +307,129 @@ async function pickOption(select, labelText) {
   assert.ok(await m.locator("text=Wavelength").count(), "activated customer scheduled");
   log("manager activated sign-up and visit scheduled");
 
+  // ---------- Messaging ----------
+  // Dana never agreed to texts and has no email, so the "photos ready" notice was blocked, with the reason shown.
+  await m.goto(`${BASE}/manager/messages?tab=problems`);
+  await m.waitForSelector("text=No consent to texts on record");
+  assert.ok(await m.locator(".card", { hasText: "Dana Whitfield" }).count(), "blocked notice listed for Dana");
+  // Recording consent needs a note of how it was given.
+  await m.goto(danaUrl);
+  await m.click("summary:has-text('Mailing address, contact preference')");
+  const cs = m.locator("form", { has: m.locator("button:has-text('Save contact settings')") });
+  await cs.locator('input[name="address1"]').fill("12 Bridgeway");
+  await cs.locator('input[name="city"]').fill("Sausalito");
+  await cs.locator('input[name="state"]').fill("ca");
+  await cs.locator('input[name="postal_code"]').fill("94965");
+  await cs.locator('input[name="sms_consent"]').check();
+  await Promise.all([m.waitForLoadState("networkidle"), cs.locator("button:has-text('Save contact settings')").click()]);
+  await m.waitForSelector(".notice.bad:has-text('Say how the customer gave consent')");
+  await m.click("summary:has-text('Mailing address, contact preference')");
+  const cs2 = m.locator("form", { has: m.locator("button:has-text('Save contact settings')") });
+  await cs2.locator('input[name="address1"]').fill("12 Bridgeway");
+  await cs2.locator('input[name="city"]').fill("Sausalito");
+  await cs2.locator('input[name="state"]').fill("ca");
+  await cs2.locator('input[name="postal_code"]').fill("94965");
+  await cs2.locator('input[name="sms_consent"]').check();
+  await cs2.locator('input[name="consent_method"]').fill("Signed service agreement, Nov 3");
+  await Promise.all([m.waitForLoadState("networkidle"), cs2.locator("button:has-text('Save contact settings')").click()]);
+  await m.waitForSelector(".notice.good:has-text('Contact settings saved')");
+  // Conversation: the sign-up confirmation went out, then a typed text, then the customer replies.
+  await m.click(".page-head a.btn:has-text('Message')");
+  await m.waitForSelector(".bubble.out:has-text('signed up for texts')");
+  const send = m.locator("form", { has: m.locator("button:has-text('Send')") }).first();
+  await send.locator('textarea[name="body"]').fill("Hi Dana, we found your fender line frayed. Want us to replace it?");
+  await Promise.all([m.waitForLoadState("networkidle"), send.locator("button:has-text('Send')").click()]);
+  await ok(m);
+  await m.waitForSelector(".bubble.out:has-text('fender line frayed')");
+  assert.ok((await m.textContent(".thread")).includes("test mode, not delivered"), "test mode is labelled");
+  const danaId = danaUrl.split("/").pop();
+  const inbound = (body, from, secret = "e2e-inbound") =>
+    m.evaluate(async ([b, f, s]) => (await fetch("/api/messaging/inbound/test", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${s}` }, body: JSON.stringify({ from: f, to: "", body: b, id: "e2e-" + Math.random() }) })).status, [body, from, secret]);
+  assert.equal(await inbound("hack", "4155550111", "wrong-secret"), 403, "incoming messages need the provider's secret");
+  assert.equal(await inbound("Yes please, go ahead", "4155550111"), 200);
+  await m.goto(`${BASE}/manager`);
+  assert.match(await m.textContent(".tiles"), /1\s*new message/, "new message shows on Needs attention");
+  await m.goto(`${BASE}/manager/messages`);
+  await m.click(".thread-row.unread:has-text('Dana Whitfield')");
+  await m.waitForSelector(".bubble.in:has-text('Yes please, go ahead')");
+  // STOP ends texting at once; the next text is refused.
+  assert.equal(await inbound("STOP", "4155550111"), 200);
+  await m.reload();
+  await m.waitForSelector(".bubble.out:has-text('unsubscribed')");
+  const send2 = m.locator("form", { has: m.locator("button:has-text('Send')") }).first();
+  await send2.locator('select[name="channel"]').selectOption("sms");
+  await send2.locator('textarea[name="body"]').fill("One more thing");
+  await Promise.all([m.waitForLoadState("networkidle"), send2.locator("button:has-text('Send')").click()]);
+  await m.waitForSelector(".notice.bad:has-text('opted out')");
+  log("consent, conversation, incoming reply and STOP all behave");
+
+  // Prospect with email only, then a marketing template sent to prospects through approval.
+  await m.goto(`${BASE}/manager/prospects/new`);
+  await m.fill('input[name="name"]', "Morgan Reyes");
+  await m.fill('input[name="phone"]', "415-555-0177");
+  await m.fill('input[name="email"]', "morgan@example.com");
+  await m.fill('input[name="source"]', "Boat show");
+  await m.fill('input[name="address1"]', "500 Gate 5 Rd");
+  await m.fill('input[name="city"]', "Sausalito");
+  await m.fill('input[name="state"]', "CA");
+  await m.fill('input[name="postal_code"]', "94965");
+  await Promise.all([m.waitForLoadState("networkidle"), m.click("button:has-text('Save prospect')")]);
+  await ok(m);
+  await m.waitForSelector("h2:has-text('Prospect')");
+  await m.goto(`${BASE}/manager/customers`);
+  assert.equal(await m.locator("a:has-text('Morgan Reyes')").count(), 0, "prospects are kept out of the customer list");
+  await m.goto(`${BASE}/manager/customers?status=prospect`);
+  assert.equal(await m.locator("a:has-text('Morgan Reyes')").count(), 1);
+  await m.goto(`${BASE}/manager/templates`);
+  const nt = m.locator("form", { has: m.locator("button:has-text('Create template')") });
+  await nt.locator('input[name="name"]').fill("Winter wash offer");
+  await nt.locator('select[name="purpose"]').selectOption("marketing");
+  await nt.locator('textarea[name="sms_body"]').fill("Winter wash slots are open, {first_name}.");
+  await nt.locator('input[name="email_subject"]').fill("Winter wash slots are open");
+  await nt.locator('textarea[name="email_body"]').fill("Hi {first_name},\n\nWinter wash slots are open. Reply to book.");
+  await Promise.all([m.waitForLoadState("networkidle"), nt.locator("button:has-text('Create template')").click()]);
+  await ok(m);
+  await m.waitForSelector("text=Reply STOP to opt out");
+  await m.locator('select[name="audience"]').selectOption("prospects");
+  await Promise.all([m.waitForLoadState("networkidle"), m.click("button:has-text('Prepare for approval')")]);
+  await m.waitForSelector(".notice.good:has-text('1 message(s) ready for your approval')");
+  // Morgan gave a number but never agreed to texts, so the marketing message goes by email, not text.
+  const pending = m.locator("form.msg-approve", { hasText: "Morgan Reyes" });
+  assert.match(await pending.textContent(), /Email to morgan@example\.com/);
+  assert.equal(await pending.locator('textarea[name="body"]').inputValue(), "Hi Morgan,\n\nWinter wash slots are open. Reply to book.");
+  await Promise.all([m.waitForLoadState("networkidle"), m.click("button:has-text('Approve all 1')")]);
+  await ok(m);
+  await m.goto(`${BASE}/manager/messages`);
+  await m.click(".thread-row:has-text('Morgan Reyes')");
+  await m.waitForSelector(".bubble.out:has-text('Winter wash slots are open')");
+  assert.match(await m.textContent(".thread"), /marketing/);
+  log("prospect added; marketing template went through approval and by email only");
+
+  // Exports
+  const contacts = await m.evaluate(async () => (await fetch("/api/manager/export?what=contacts")).text());
+  assert.match(contacts, /Prospect,prospect,Morgan Reyes,Morgan,415-555-0177,morgan@example\.com,500 Gate 5 Rd,,Sausalito,CA,94965/);
+  assert.match(contacts, /Customer,active,Dana Whitfield,Dana,415-555-0111,,12 Bridgeway,,Sausalito,CA,94965,text,yes,[^,]+,no,,yes,/, "Dana: consent yes, then opted out yes");
+  const consent = await m.evaluate(async () => (await fetch("/api/manager/export?what=consent")).text());
+  assert.match(consent, /Dana Whitfield,\+14155550111,sms,service,granted,"Recorded by manager: Signed service agreement/);
+  assert.match(consent, /Dana Whitfield,\+14155550111,sms,all,revoked/);
+  const msgs = await m.evaluate(async () => (await fetch("/api/manager/export?what=messages")).text());
+  assert.match(msgs, /Yes please, go ahead/);
+  const anonExport = await (await browser.newContext()).request.get(`${BASE}/api/manager/export?what=contacts`);
+  assert.equal(anonExport.status(), 401, "exports need a manager sign-in");
+  log("contact, consent and message exports ok");
+
+  // The sign-up customer ticked the text box: confirmation text recorded, preferences editable on their page.
+  await m.goto(`${BASE}/manager/messages`);
+  await m.click(".thread-row:has-text('Priya Nair')");
+  await m.waitForSelector(".bubble.out:has-text('signed up for texts')");
+  await s.goto(s.url());
+  await s.uncheck('input[name="sms_consent"]');
+  await Promise.all([s.waitForLoadState("networkidle"), s.click("#contact button:has-text('Save')")]);
+  await s.waitForSelector(".notice.bad:has-text('no email address')");
+  assert.equal((await s.goto(`${BASE}/sms-terms`)).status(), 200);
+  assert.match(await s.textContent("body"), /Reply STOP/);
+  log("sign-up confirmation sent; customer preference page and terms page work");
+
   // Billing export
   const csv = await m.evaluate(async (month) => (await fetch(`/api/manager/billing?month=${month}`)).text(), today.slice(0, 7));
   assert.ok(csv.includes("Sea Breeze"), "billing CSV lists completed job");
