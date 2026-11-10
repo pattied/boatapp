@@ -95,13 +95,6 @@ a {
   gap: 12px;
 }
 
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -216,21 +209,11 @@ a {
   border-color: var(--blue);
 }
 
-.tile img,
-.tile-blank {
+.tile img{
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.star {
-  position: absolute;
-  top: 4px;
-  left: 6px;
-  color: #fff;
-  font-size: 20px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .tile-tag {
@@ -243,51 +226,6 @@ a {
   background: rgba(15, 42, 68, 0.8);
   padding: 2px 8px;
   border-radius: 99px;
-}
-
-.tile-status {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(15, 42, 68, 0.6);
-}
-
-.tile-status.error {
-  background: rgba(179, 38, 30, 0.85);
-}
-
-.tile-status button {
-  font: inherit;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 0;
-  background: #fff;
-  color: var(--red);
-  font-weight: 700;
-}
-
-.remove {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 0;
-  background: rgba(15, 42, 68, 0.75);
-  color: #fff;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
 }
 
 .share-preview {
@@ -380,14 +318,6 @@ a {
 /* Manager view */
 .page.wide {
   max-width: 1040px;
-}
-
-.manager-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .btn-row.tight .btn {

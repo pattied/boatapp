@@ -1,8 +1,10 @@
 import { PageHead } from "@/components/ui";
 import { fmtDateTime } from "@/lib/dates";
 import { q } from "@/lib/db";
+import { requireManager } from "@/lib/session";
 
 export default async function Activity() {
+  await requireManager();
   const rows = await q<{ at: string; actor: string; action: string; entity: string; entity_id: string | null; detail: Record<string, unknown> }>(
     "select at, actor, action, entity, entity_id, detail from audit_log order by at desc limit 250",
   );

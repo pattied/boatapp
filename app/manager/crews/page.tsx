@@ -2,10 +2,12 @@ import { createCrew, createTechnician, deleteCrew, deleteTechnician, updateCrew,
 import { DeleteForm, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { addDays, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 export default async function Crews({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const today = todayLA();
   const [crews, techs] = await Promise.all([

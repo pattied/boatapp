@@ -4,10 +4,12 @@ import { DeleteForm, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { fmtDateTime } from "@/lib/dates";
 import { one, q } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
+import { requireManager } from "@/lib/session";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> };
 
 export default async function MarinaDetail({ params, searchParams }: Props) {
+  await requireManager();
   const { id } = await params;
   const sp = await searchParams;
   if (!isUuid(id)) notFound();

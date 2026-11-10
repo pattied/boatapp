@@ -57,8 +57,22 @@ export async function requestPause(fd: FormData) {
 }
 
 // Public sign-up. Creates a pending customer, boat and an inactive plan for the manager to review.
-export async function signUp(fd: FormData) {
-  const fail = (msg: string): never => redirect(`/signup?error=${encodeURIComponent(msg)}`);
+class Invalid extends Error {}
+
+// Returns { error } for a problem the customer can fix, so the form keeps what they typed.
+export async function signUp(fd: FormData): Promise<{ error: string } | void> {
+  try {
+    await createSignUp(fd);
+  } catch (err) {
+    if (err instanceof Invalid) return { error: err.message };
+    throw err; // includes the redirect to the thank-you page
+  }
+}
+
+async function createSignUp(fd: FormData) {
+  const fail = (msg: string): never => {
+    throw new Invalid(msg);
+  };
   if (field(fd, "website")) redirect("/signup/thanks"); // hidden field: only bots fill it in
   const name = field(fd, "name", 100);
   const phone = field(fd, "phone", 30);

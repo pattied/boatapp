@@ -1,5 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { q } from "./db";
 
 // Signed cookie sessions. Managers and technicians sign in with a shared passcode;
 // technicians also pick their own name so their crew's jobs load and their work is attributed.
@@ -26,9 +28,33 @@ function safeEqual(a: string, b: string) {
 
 export function passcodeOk(role: "manager" | "tech", given: string): boolean {
   const expected = role === "manager" ? process.env.MANAGER_PASSCODE || process.env.APP_PASSCODE : process.env.APP_PASSCODE;
-  if (!expected) return true; // local development without passcodes
+  // With no passcode configured, only a local development machine may sign in. The live site refuses.
+  if (!expected) return !process.env.VERCEL;
   return safeEqual(given.trim(), expected);
 }
+
+const MAX_TRIES = 5;
+const LOCK_MINUTES = 10;
+
+// Checks a passcode with a lockout: after 5 wrong tries from one network address, sign-in for that
+// role is refused for 10 minutes. A site-wide cap of 60 wrong tries also applies, so spreading
+// guesses across many addresses does not help.
+export async function checkPasscode(role: "manager" | "tech", given: string): Promise<"ok" | "wrong" | "locked"> {
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  const who = `${role}:${ip}`;
+  const [mine, all] = await Promise.all([
+    q<{ n: number }>(`select count(*)::int as n from signin_attempts where who = $1 and at > now() - interval '${LOCK_MINUTES} minutes'`, [who]),
+    q<{ n: number }>(`select count(*)::int as n from signin_attempts where who like $1 and at > now() - interval '${LOCK_MINUTES} minutes'`, [`${role}:%`]),
+  ]);
+  if (mine[0].n >= MAX_TRIES || all[0].n >= 60) return "locked";
+  if (passcodeOk(role, given)) return "ok";
+  await q("insert into signin_attempts (who) values ($1)", [who]);
+  await q("delete from signin_attempts where at < now() - interval '1 day'");
+  return "wrong";
+}
+
+export const LOCKED_MESSAGE = `Too many wrong tries. Wait ${LOCK_MINUTES} minutes and try again.`;
 
 export async function getSession(): Promise<Session | null> {
   const raw = (await cookies()).get(COOKIE)?.value;
@@ -66,8 +92,8 @@ export async function techSession(): Promise<Extract<Session, { role: "tech" }> 
   return s?.role === "tech" ? s : null;
 }
 
-export class Unauthorized extends Error {}
-
+// Every manager page and every manager action calls this first. The check cannot live only in the shared
+// layout: a browser that already has the layout asks the server for the inner page alone.
 export async function requireManager() {
-  if (!(await managerSession())) throw new Unauthorized("Sign in as a manager.");
+  if (!(await managerSession())) redirect("/signin");
 }

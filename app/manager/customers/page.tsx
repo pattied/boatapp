@@ -2,12 +2,14 @@ import Link from "next/link";
 import { Badge, Empty, Notice, PageHead } from "@/components/ui";
 import { fmtDay } from "@/lib/dates";
 import { q } from "@/lib/db";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ q?: string; status?: string; ok?: string; error?: string }>;
 
 const TONE: Record<string, string> = { active: "good", pending: "warn", paused: "warn", inactive: "idle", declined: "idle" };
 
 export default async function Customers({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const term = (sp.q ?? "").trim();
   const status = ["active", "pending", "inactive", "declined"].includes(sp.status ?? "") ? sp.status! : "";

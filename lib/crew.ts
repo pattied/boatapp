@@ -183,3 +183,29 @@ export async function applyEvent(tech: { techId: string; name: string }, ev: Cre
     return "applied";
   });
 }
+
+// Who may post work to a job.
+// "own": the job belongs to the technician's crew.
+// "review": another crew's job from the last two days through tomorrow. This happens when a manager reassigns a
+//   visit while the technician is working offline, so the work is kept and the visit is marked for manager review.
+// "deny": any other job. "inactive": the technician was removed or deactivated.
+export async function crewAccess(techId: string, jobId: string): Promise<"own" | "review" | "deny" | "inactive" | "missing"> {
+  const tech = await one<{ crew_id: string | null; active: boolean }>("select crew_id, active from technicians where id = $1", [techId]);
+  if (!tech || !tech.active) return "inactive";
+  const job = await one<{ crew_id: string | null; scheduled_date: string }>("select crew_id, scheduled_date from jobs where id = $1", [jobId]);
+  if (!job) return "missing";
+  if (tech.crew_id && job.crew_id === tech.crew_id) return "own";
+  const today = todayLA();
+  if (job.scheduled_date >= addDays(today, -2) && job.scheduled_date <= addDays(today, 1)) return "review";
+  return "deny";
+}
+
+export async function markOtherCrewWork(jobId: string, techName: string) {
+  await q(
+    `update jobs set needs_review = true,
+       manager_notes = case when manager_notes like '%from another crew%' then manager_notes
+         else trim(manager_notes || ' Work posted by ' || $2 || ' from another crew.') end
+     where id = $1`,
+    [jobId, techName],
+  );
+}

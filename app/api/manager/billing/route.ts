@@ -3,7 +3,9 @@ import { addDays } from "@/lib/dates";
 import { managerSession } from "@/lib/session";
 
 const csv = (v: unknown) => {
-  const s = v === null || v === undefined ? "" : String(v);
+  let s = v === null || v === undefined ? "" : String(v);
+  // Stop spreadsheet programs from running a cell as a formula.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

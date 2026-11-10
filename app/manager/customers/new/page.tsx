@@ -3,10 +3,12 @@ import { createCustomer } from "../../actions";
 import { BoatFields, PlanFields } from "@/components/BoatPlanFields";
 import { Check, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { lookups } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 export default async function NewCustomer({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const l = await lookups();
   return (

@@ -1,10 +1,12 @@
 import { createService, updateService } from "../actions";
 import { Check, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { q } from "@/lib/db";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 export default async function Services({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const services = await q<{ id: string; name: string; description: string; is_add_on: boolean; price_text: string; shot_list: string[]; active: boolean }>(
     "select * from services order by active desc, sort, name",

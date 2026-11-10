@@ -4,11 +4,13 @@ import { Empty, JobStatusBadge, Notice, PageHead } from "@/components/ui";
 import { addDays, fmtDay, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { JOB_SELECT, locationText, lookups, type JobRow } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 // Visits that need a new date: sent here by a manager, or skipped by a technician.
 export default async function Reschedule({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const today = todayLA();
   const [jobs, { crews }] = await Promise.all([

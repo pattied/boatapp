@@ -3,11 +3,13 @@ import { Badge, Empty, JobStatusBadge, Notice, PageHead } from "@/components/ui"
 import { addDays, fmtDateTime, fmtDay, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { JOB_SELECT, locationText, type JobRow } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 // Everything waiting on the manager, most urgent first.
 export default async function NeedsAttention({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const today = todayLA();
   const [urgent, review, resched, unassigned, signups, requests, openIssues, todayJobs, photosMissing] = await Promise.all([

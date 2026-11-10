@@ -4,6 +4,7 @@ import { Badge, Empty, Notice, PageHead, Submit } from "@/components/ui";
 import { fmtDateTime } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { srcFor } from "@/lib/storage";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ status?: string; open?: string; ok?: string; error?: string }>;
 
@@ -15,6 +16,7 @@ const TABS = [
 ] as const;
 
 export default async function Issues({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const status = TABS.some(([k]) => k === sp.status) ? sp.status! : "open";
   const [issues, counts] = await Promise.all([

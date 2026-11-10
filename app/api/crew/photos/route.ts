@@ -1,3 +1,4 @@
+import { crewAccess, markOtherCrewWork } from "@/lib/crew";
 import { one, q } from "@/lib/db";
 import { failure, json, readJpeg } from "@/lib/http";
 import { isUuid } from "@/lib/ids";
@@ -21,6 +22,10 @@ export async function POST(req: Request) {
   try {
     const existing = await one<{ pathname: string }>("select pathname from photos where client_id = $1", [clientId]);
     if (existing) return json({ ok: true, src: srcFor(existing.pathname), duplicate: true });
+    const access = await crewAccess(s.techId, jobId);
+    if (access === "inactive") return json({ error: "Your technician profile is inactive. Ask your manager." }, 401);
+    if (access === "deny") return json({ error: "That job belongs to another crew." }, 403);
+    if (access === "review") await markOtherCrewWork(jobId, s.name);
     const job = await one<{ public_id: string }>("select public_id from jobs where id = $1", [jobId]);
     if (!job) return json({ error: "That job no longer exists." }, 404);
     const jpeg = await readJpeg(req);

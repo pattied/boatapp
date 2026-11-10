@@ -11,6 +11,7 @@ import {
   markBoatSold,
   deleteBoat,
   deleteCustomer,
+  replacePortalLink,
   pauseBoatAction,
   resumeBoatAction,
   updateBoat,
@@ -24,6 +25,7 @@ import { addDays, fmtDay, fmtDateTime, todayLA, WEEKDAYS, weekday } from "@/lib/
 import { q, one } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
 import { JOB_SELECT, locationText, lookups, type JobRow } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> };
 
@@ -45,6 +47,7 @@ type Plan = {
 };
 
 export default async function CustomerDetail({ params, searchParams }: Props) {
+  await requireManager();
   const { id } = await params;
   const sp = await searchParams;
   if (!isUuid(id)) notFound();
@@ -327,6 +330,18 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
           </section>
         </div>
       )}
+      <section className="stack">
+        <details className="danger-zone">
+          <summary>Replace the customer&apos;s portal link</summary>
+          <form action={replacePortalLink} className="delete-form">
+            {hidden("id", id)}
+            {hidden("back", back)}
+            <p className="muted small">Use this if the link was forwarded or lost. The old link stops working at once; send {c.name} the new one.</p>
+            <label className="check small"><input type="checkbox" name="confirm" required /> <span>Yes, replace the link</span></label>
+            <button className="btn small-btn" type="submit">Replace link</button>
+          </form>
+        </details>
+      </section>
       <section className="stack">
         <details className="danger-zone"><summary>Delete this customer</summary><DeleteForm action={deleteCustomer} id={id} back={back} label="Delete customer" warning={`Removes ${c.name} with every boat, plan, visit, photo, issue and request. This cannot be undone.`} /></details>
       </section>

@@ -3,10 +3,12 @@ import { Notice, PageHead, Select, Submit } from "@/components/ui";
 import { todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { lookups } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ boat?: string; date?: string; ok?: string; error?: string }>;
 
 export default async function NewJob({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const [{ crews, services }, boats] = await Promise.all([
     lookups(),

@@ -899,3 +899,14 @@ export async function deleteTechnician(fd: FormData) {
   await audit(q, ACTOR, "delete", "technician", id, { name: t?.name });
   done(fd, `${t?.name ?? "Technician"} deleted. They are signed out on their next sync.`);
 }
+
+// Issues a new private portal link. The old one stops working immediately.
+export async function replacePortalLink(fd: FormData) {
+  await requireManager();
+  if (!flag(fd, "confirm")) fail(fd, "Tick “Yes, replace the link” to confirm.");
+  const id = field(fd, "id");
+  if (!isUuid(id)) fail(fd, "Customer not found.");
+  await q("update customers set portal_token = $2 where id = $1", [id, newPublicId()]);
+  await audit(q, ACTOR, "replace_portal_link", "customer", id);
+  done(fd, "New portal link created. Copy it from the top of this page and send it to the customer.");
+}

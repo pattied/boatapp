@@ -4,10 +4,12 @@ import { Badge, Empty, Notice, PageHead, Submit } from "@/components/ui";
 import { addDays, fmtDateTime, fmtDay, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { lookups } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 export default async function Requests({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const today = todayLA();
   const [signups, pending, recent, { crews }] = await Promise.all([

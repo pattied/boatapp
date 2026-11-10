@@ -38,4 +38,16 @@ npm install
 npm run dev
 ```
 
-With no `DATABASE_URL`, the app runs an embedded Postgres in `.data/pg` and stores photos in `.data/files`. Tests: `npx tsx --test tests/*.test.ts`.
+With no `DATABASE_URL`, the app runs an embedded Postgres in `.data/pg` and stores photos in `.data/files`.
+
+## Tests
+
+- `npm test`: scheduling and database tests.
+- `npm run build && npm run test:e2e`: starts the built app on a fresh local database and drives a manager, a technician phone and a customer phone through every flow, including offline work, deletes, sign-in lockout and access checks. Needs Playwright with Chromium.
+
+## Sign-in rules
+
+- Five wrong passcodes from one network address lock sign-in for that role for 10 minutes.
+- If no passcode is set on the live site, nobody can sign in.
+- Every manager page and action checks the manager sign-in itself. Keep that when adding pages: call `requireManager()` first.
+- A technician can post work only to their own crew's jobs. Work on another crew's job from the last two days through tomorrow is accepted and marked for manager review, because a visit can be reassigned while a phone is offline.

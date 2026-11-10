@@ -5,10 +5,12 @@ import { addDays, fmtDay, isDate, startOfWeek, todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
 import { JOB_SELECT, locationText, lookups, ORDER_WALKING, type JobRow } from "@/lib/repo";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ date?: string; view?: string; crew?: string; marina?: string; ok?: string; error?: string }>;
 
 export default async function Schedule({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const today = todayLA();
   const date = isDate(sp.date) ? sp.date : today;

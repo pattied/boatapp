@@ -223,6 +223,36 @@ create table if not exists audit_log (
 )
 --;
 create index if not exists audit_entity on audit_log (entity, entity_id)
+--;
+create table if not exists signin_attempts (
+  id bigserial primary key,
+  who text not null,
+  at timestamptz not null default now()
+)
+--;
+create index if not exists signin_attempts_who on signin_attempts (who, at)
+--;
+create index if not exists jobs_crew_date on jobs (crew_id, scheduled_date)
+--;
+create index if not exists jobs_status on jobs (status)
+--;
+create index if not exists boats_customer on boats (customer_id)
+--;
+create index if not exists boats_marina on boats (marina_id)
+--;
+create index if not exists plans_boat on plans (boat_id)
+--;
+create index if not exists contacts_customer on contacts (customer_id)
+--;
+create index if not exists issues_boat on issues (boat_id)
+--;
+create index if not exists issues_status on issues (status)
+--;
+create index if not exists requests_customer on requests (customer_id)
+--;
+create index if not exists requests_status on requests (status)
+--;
+create index if not exists crew_events_job on crew_events (job_id)
 `;
 
 // Starting catalog, inserted once when the services table is empty.

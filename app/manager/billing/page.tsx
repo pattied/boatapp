@@ -1,7 +1,9 @@
 import { PageHead } from "@/components/ui";
 import { todayLA } from "@/lib/dates";
+import { requireManager } from "@/lib/session";
 
-export default function Billing() {
+export default async function Billing() {
+  await requireManager();
   const month = todayLA().slice(0, 7);
   return (
     <>

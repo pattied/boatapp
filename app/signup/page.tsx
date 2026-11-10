@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signUp } from "../portal/actions";
-import { Notice, Select } from "@/components/ui";
+import SignupShell from "@/components/SignupShell";
+import { Select } from "@/components/ui";
 import { getConfig } from "@/lib/config";
 import { q } from "@/lib/db";
 import { BERTH_TYPES } from "@/lib/repo";
@@ -8,14 +9,11 @@ import { BERTH_TYPES } from "@/lib/repo";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign up for boat cleaning" };
 
-type Props = { searchParams: Promise<{ error?: string }> };
-
 const CONSENT_TEXT =
   "I agree to receive text messages about my boat cleanings (reminders, confirmations and photo links). Message and data rates may apply. Reply STOP to opt out.";
 
 // Public sign-up. Gate codes are never shown here: only names.
-export default async function SignUp({ searchParams }: Props) {
-  const sp = await searchParams;
+export default async function SignUp() {
   const { businessName } = getConfig();
   const [marinas, gates, docks, services] = await Promise.all([
     q<{ id: string; name: string }>("select id, name from marinas order by name"),
@@ -31,11 +29,10 @@ export default async function SignUp({ searchParams }: Props) {
         <h1>Sign up for cleanings</h1>
         <p className="muted small">Tell us about you and your boat. We review every sign-up and confirm your first cleaning.</p>
       </header>
-      <Notice error={sp.error} />
       {marinas.length === 0 ? (
         <p className="notice warn">Online sign-up isn&apos;t open yet. Please call or text us.</p>
       ) : (
-        <form action={signUp} className="stack">
+        <SignupShell action={signUp}>
           <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp" aria-hidden="true" />
           <section className="card stack">
             <h2>You</h2>
@@ -108,8 +105,7 @@ export default async function SignUp({ searchParams }: Props) {
             </label>
           </section>
 
-          <button className="btn primary">Send sign-up</button>
-        </form>
+        </SignupShell>
       )}
       <Link href="/customer" className="manager-link">Back</Link>
     </main>

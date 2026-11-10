@@ -2,10 +2,12 @@ import Link from "next/link";
 import { createMarina } from "../actions";
 import { Empty, Field, Notice, PageHead, Submit } from "@/components/ui";
 import { q } from "@/lib/db";
+import { requireManager } from "@/lib/session";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
 export default async function Marinas({ searchParams }: { searchParams: SP }) {
+  await requireManager();
   const sp = await searchParams;
   const marinas = await q<{ id: string; name: string; address: string; gates: number; docks: number; boats: number }>(
     `select m.id, m.name, m.address,

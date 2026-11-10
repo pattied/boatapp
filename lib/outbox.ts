@@ -100,6 +100,6 @@ export async function sendItem(item: OutboxItem): Promise<SendResult> {
   }
   if (res.ok) return "sent";
   if (res.status === 401) return "signed_out";
-  if (res.status === 404 || res.status === 400) return "dropped";
+  if (res.status === 404 || res.status === 400 || res.status === 403) return "dropped";
   return "offline"; // server error: keep it and retry later
 }
