@@ -17,7 +17,7 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
        from crews c order by c.active desc, c.name`,
       [today, addDays(today, 6)],
     ),
-    q<{ id: string; name: string; crew_id: string | null; active: boolean; last_seen: string | null }>(
+    q<{ id: string; name: string; first_name: string; last_name: string; crew_id: string | null; active: boolean; last_seen: string | null }>(
       `select t.*, (select max(e.received_at) from crew_events e where e.by_name = t.name) as last_seen
        from technicians t order by t.active desc, t.name`,
     ),
@@ -57,7 +57,8 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
           <form action={updateTechnician} className="row wrap">
             <input type="hidden" name="id" value={t.id} />
             <input type="hidden" name="back" value={back} />
-            <Field label="Name" name="name" defaultValue={t.name} />
+            <Field label="First name" name="first_name" defaultValue={t.first_name} />
+            <Field label="Last name" name="last_name" defaultValue={t.last_name} />
             <label className="field">
               <span>Crew</span>
               <select name="crew_id" defaultValue={t.crew_id ?? ""}>
@@ -74,7 +75,8 @@ export default async function Crews({ searchParams }: { searchParams: SP }) {
         ))}
         <form action={createTechnician} className="row wrap">
           <input type="hidden" name="back" value={back} />
-          <Field label="New technician" name="name" />
+          <Field label="New technician: first name" name="first_name" />
+          <Field label="Last name" name="last_name" />
           <label className="field">
             <span>Crew</span>
             <select name="crew_id" defaultValue="">

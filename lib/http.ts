@@ -31,3 +31,21 @@ export function flag(fd: FormData, name: string): boolean {
   const v = fd.get(name);
   return v === "on" || v === "true" || v === "1";
 }
+
+// A person's name, entered as two fields. `name` is the full name used for display everywhere.
+export type PersonName = { first: string; last: string; name: string };
+export function personName(fd: FormData): PersonName {
+  const first = field(fd, "first_name", 50).replace(/\s+/g, " ");
+  const last = field(fd, "last_name", 50).replace(/\s+/g, " ");
+  return { first, last, name: `${first} ${last}`.trim() };
+}
+
+// Stores the two parts next to the full name on a customers, contacts or technicians row.
+export async function saveNameParts(
+  run: (text: string, params?: unknown[]) => Promise<unknown>,
+  table: "customers" | "contacts" | "technicians",
+  id: string,
+  n: PersonName,
+) {
+  await run(`update ${table} set first_name = $2, last_name = $3 where id = $1`, [id, n.first, n.last]);
+}

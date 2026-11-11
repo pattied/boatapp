@@ -356,6 +356,18 @@ create table if not exists suppressions (
   primary key (channel, address)
 )
 --;
+alter table customers add column if not exists first_name text not null default ''
+--;
+alter table customers add column if not exists last_name text not null default ''
+--;
+alter table contacts add column if not exists first_name text not null default ''
+--;
+alter table contacts add column if not exists last_name text not null default ''
+--;
+alter table technicians add column if not exists first_name text not null default ''
+--;
+alter table technicians add column if not exists last_name text not null default ''
+--;
 create table if not exists spotted_boats (
   id uuid primary key default gen_random_uuid(),
   client_id text unique,
@@ -422,6 +434,16 @@ export const ONE_TIME: { key: string; statements: string[] }[] = [
       "alter table customers drop constraint if exists customers_status_check",
       "alter table customers add constraint customers_status_check check (status in ('prospect', 'pending', 'active', 'paused', 'inactive', 'declined'))",
     ],
+  },
+  {
+    // Names entered as one field before first and last were separated: the first word becomes the first name.
+    key: "split_names",
+    statements: ["customers", "contacts", "technicians"].map(
+      (t) =>
+        `update ${t} set first_name = split_part(btrim(name), ' ', 1),
+           last_name = btrim(substr(btrim(name), length(split_part(btrim(name), ' ', 1)) + 1))
+         where first_name = '' and last_name = '' and btrim(name) <> ''`,
+    ),
   },
   {
     // Customers who agreed to texts before this release keep that consent on record.

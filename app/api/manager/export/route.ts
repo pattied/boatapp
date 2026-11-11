@@ -16,17 +16,17 @@ export async function GET(req: Request) {
       who === "customers" ? "c.status <> 'prospect'" : who === "prospects" ? "c.status = 'prospect'" : who === "mailable" ? "c.address1 <> '' and c.postal_code <> ''" : "true";
     const rows = await q<Record<string, unknown>>(
       `select case when c.status = 'prospect' then 'Prospect' else 'Customer' end as kind, c.status, c.name,
-         split_part(c.name, ' ', 1) as first_name, c.phone, c.email, c.address1, c.address2, c.city, c.state, c.postal_code,
+         c.first_name, c.last_name, c.phone, c.email, c.address1, c.address2, c.city, c.state, c.postal_code,
          c.contact_pref, c.sms_consent, c.consent_at, c.promo_sms_consent, c.promo_sms_consent_at,
          c.sms_opted_out_at is not null as sms_opted_out, c.email_opted_out_at is not null as email_unsubscribed,
          c.marketing_consent as photo_use_ok, c.source, c.interest, c.notes, c.created_at,
          (select string_agg(b.name, '; ' order by b.name) from boats b where b.customer_id = c.id and b.status <> 'sold') as boats,
          (select string_agg(distinct m.name, '; ') from boats b join marinas m on m.id = b.marina_id where b.customer_id = c.id and b.status <> 'sold') as marinas,
          (select string_agg(x.name || coalesce(' ' || nullif(x.phone, ''), '') || coalesce(' ' || nullif(x.email, ''), ''), '; ') from contacts x where x.customer_id = c.id) as other_contacts
-       from customers c where c.status <> 'declined' and ${where} order by c.status = 'prospect', c.name`,
+       from customers c where c.status <> 'declined' and ${where} order by c.status = 'prospect', c.last_name, c.first_name, c.name`,
     );
     return csvFile(`contacts-${who || "all"}-${day}.csv`, [
-      ["kind", "Type"], ["status", "Status"], ["name", "Name"], ["first_name", "First name"], ["phone", "Phone"], ["email", "Email"],
+      ["kind", "Type"], ["status", "Status"], ["first_name", "First name"], ["last_name", "Last name"], ["name", "Full name"], ["phone", "Phone"], ["email", "Email"],
       ["address1", "Address 1"], ["address2", "Address 2"], ["city", "City"], ["state", "State"], ["postal_code", "ZIP"],
       ["contact_pref", "Prefers"], ["sms_consent", "Agreed to service texts"], ["consent_at", "Service text consent date"],
       ["promo_sms_consent", "Agreed to marketing texts"], ["promo_sms_consent_at", "Marketing text consent date"],
@@ -65,13 +65,13 @@ export async function GET(req: Request) {
   if (what === "spotted") {
     const rows = await q<Record<string, unknown>>(
       `select m.name as marina, d.name as dock, s.slip, s.boat_name, s.make_model, s.length_ft, s.boat_type, s.condition, s.status,
-         c.name as owner, c.phone, c.email, c.address1, c.address2, c.city, c.state, c.postal_code, s.spotted_by, s.spotted_at
+         c.first_name as owner_first, c.last_name as owner_last, c.phone, c.email, c.address1, c.address2, c.city, c.state, c.postal_code, s.spotted_by, s.spotted_at
        from spotted_boats s join marinas m on m.id = s.marina_id left join docks d on d.id = s.dock_id left join customers c on c.id = s.customer_id
        order by m.name, d.name, s.slip`,
     );
     return csvFile(`dock-walk-boats-${day}.csv`, [
       ["marina", "Marina"], ["dock", "Dock"], ["slip", "Slip"], ["boat_name", "Boat"], ["make_model", "Make and model"], ["length_ft", "Length (ft)"],
-      ["boat_type", "Type"], ["condition", "Noticed"], ["status", "Status"], ["owner", "Owner"], ["phone", "Phone"], ["email", "Email"],
+      ["boat_type", "Type"], ["condition", "Noticed"], ["status", "Status"], ["owner_first", "Owner first name"], ["owner_last", "Owner last name"], ["phone", "Phone"], ["email", "Email"],
       ["address1", "Address 1"], ["address2", "Address 2"], ["city", "City"], ["state", "State"], ["postal_code", "ZIP"], ["spotted_by", "Logged by"], ["spotted_at", "Logged"],
     ], rows);
   }

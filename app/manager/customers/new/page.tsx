@@ -24,7 +24,8 @@ export default async function NewCustomer({ searchParams }: { searchParams: SP }
         <input type="hidden" name="back" value="/manager/customers/new" />
         <section className="card form-grid">
           <h2 className="wide">Customer</h2>
-          <Field label="Name" name="name" required />
+          <Field label="First name" name="first_name" required />
+          <Field label="Last name" name="last_name" required />
           <Field label="Mobile phone" name="phone" type="tel" />
           <Field label="Email" name="email" type="email" />
           <label className="field wide">

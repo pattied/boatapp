@@ -34,7 +34,10 @@ export default async function SignUp() {
           <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp" aria-hidden="true" />
           <section className="card stack">
             <h2>You</h2>
-            <label className="field"><span>Name *</span><input name="name" required autoComplete="name" /></label>
+<div className="two">
+            <label className="field"><span>First name *</span><input name="first_name" required maxLength={50} autoComplete="given-name" /></label>
+            <label className="field"><span>Last name *</span><input name="last_name" required maxLength={50} autoComplete="family-name" /></label>
+          </div>
             <label className="field"><span>Mobile phone *</span><input name="phone" type="tel" required autoComplete="tel" /></label>
             <label className="field"><span>Email</span><input name="email" type="email" autoComplete="email" /></label>
             <details>

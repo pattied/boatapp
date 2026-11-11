@@ -32,7 +32,7 @@ export default async function Customers({ searchParams }: { searchParams: SP }) 
      where ($1 = '' or c.name ilike '%' || $1 || '%' or c.phone ilike '%' || $1 || '%' or c.email ilike '%' || $1 || '%'
             or exists (select 1 from boats b where b.customer_id = c.id and b.name ilike '%' || $1 || '%'))
        and (case when $2 = '' then c.status <> 'prospect' else c.status = $2 end)
-     order by c.status = 'pending' desc, c.name`,
+     order by c.status = 'pending' desc, c.last_name, c.first_name, c.name`,
     [term, status],
   );
   return (

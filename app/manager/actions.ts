@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { audit } from "@/lib/audit";
 import { addDays, isDate, todayLA } from "@/lib/dates";
 import { one, q, tx, type Q } from "@/lib/db";
-import { field, flag } from "@/lib/http";
+import { field, flag, personName, saveNameParts } from "@/lib/http";
 import { isUuid, newPublicId } from "@/lib/ids";
 import { generateJobs, pauseBoat, regeneratePlan, resumeBoat } from "@/lib/schedule";
 import { after } from "next/server";
@@ -168,12 +168,14 @@ export async function updateCrew(fd: FormData) {
 
 export async function createTechnician(fd: FormData) {
   await requireManager();
-  const name = field(fd, "name", 60);
-  if (!name) fail(fd, "Enter the technician's name.");
+  const person = personName(fd);
+  const name = person.name;
+  if (!person.first) fail(fd, "Enter the technician's first name.");
   const row = await one<{ id: string }>("insert into technicians (name, crew_id) values ($1, $2) returning id", [
     name,
     uuidOrNull(field(fd, "crew_id")),
   ]);
+  await saveNameParts(q, "technicians", row!.id, person);
   await audit(q, ACTOR, "create", "technician", row!.id, { name });
   done(fd, "Technician added.");
 }
@@ -182,12 +184,15 @@ export async function updateTechnician(fd: FormData) {
   await requireManager();
   const id = field(fd, "id");
   if (!isUuid(id)) fail(fd, "Technician not found.");
-  await q("update technicians set name = coalesce(nullif($2, ''), name), crew_id = $3, active = $4 where id = $1", [
+  const person = personName(fd);
+  if (!person.first) fail(fd, "Enter the technician's first name.");
+  await q("update technicians set name = $2, crew_id = $3, active = $4 where id = $1", [
     id,
-    field(fd, "name", 60),
+    person.name,
     uuidOrNull(field(fd, "crew_id")),
     flag(fd, "active"),
   ]);
+  await saveNameParts(q, "technicians", id, person);
   await audit(q, ACTOR, "update", "technician", id, { crew: field(fd, "crew_id"), active: flag(fd, "active") });
   done(fd, "Technician saved.");
 }
@@ -329,8 +334,9 @@ async function insertPlan(t: Q, boatId: string, p: PlanInput, active = true) {
 
 export async function createCustomer(fd: FormData) {
   await requireManager();
-  const name = field(fd, "name", 100);
-  if (!name) fail(fd, "Enter the customer's name.", "/manager/customers/new");
+  const person = personName(fd);
+  const name = person.name;
+  if (!person.first || !person.last) fail(fd, "Enter the customer's first and last name.", "/manager/customers/new");
   const boat = boatInput(fd);
   const boatErr = await checkBoat(boat);
   if (boatErr) fail(fd, boatErr, "/manager/customers/new");
@@ -351,6 +357,7 @@ export async function createCustomer(fd: FormData) {
         [name, phone, field(fd, "email", 120), field(fd, "notes", 1000), newPublicId(), flag(fd, "marketing_consent")],
       )
     )[0].id;
+    await saveNameParts(t, "customers", c, person);
     const boatId = await insertBoat(t, c, boat);
     if (plan) await insertPlan(t, boatId, plan);
     await audit(t, ACTOR, "create", "customer", c, { name, boat: boat.name });
@@ -363,8 +370,10 @@ export async function createCustomer(fd: FormData) {
 export async function updateCustomer(fd: FormData) {
   await requireManager();
   const id = field(fd, "id");
-  const name = field(fd, "name", 100);
-  if (!isUuid(id) || !name) fail(fd, "Enter the customer's name.");
+  const person = personName(fd);
+  const name = person.name;
+  if (!isUuid(id) || !person.first) fail(fd, "Enter the first name.");
+  await saveNameParts(q, "customers", id, person);
   const status = field(fd, "status", 20);
   const phone = field(fd, "phone", 30);
   const before = await one<{ phone: string; sms_consent: boolean; promo_sms_consent: boolean }>("select phone, sms_consent, promo_sms_consent from customers where id = $1", [id]);
@@ -423,14 +432,17 @@ export async function declineCustomer(fd: FormData) {
 export async function addContact(fd: FormData) {
   await requireManager();
   const customerId = field(fd, "customer_id");
-  const name = field(fd, "name", 100);
-  if (!isUuid(customerId) || !name) fail(fd, "Enter the contact's name.");
-  await q("insert into contacts (customer_id, name, role, phone, email) values ($1, $2, $3, $4, $5)", [
+  const person = personName(fd);
+  const name = person.name;
+  if (!isUuid(customerId) || !person.first) fail(fd, "Enter the contact's first name.");
+  await q("insert into contacts (customer_id, name, role, phone, email, first_name, last_name) values ($1, $2, $3, $4, $5, $6, $7)", [
     customerId,
     name,
     field(fd, "role", 30) || "owner",
     field(fd, "phone", 30),
     field(fd, "email", 120),
+    person.first,
+    person.last,
   ]);
   await audit(q, ACTOR, "create", "contact", customerId, { name });
   done(fd, "Contact added.");

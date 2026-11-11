@@ -18,7 +18,8 @@ export default async function NewProspect({ searchParams }: { searchParams: SP }
       <Notice ok={sp.ok} error={sp.error} />
       <form action={createProspect} className="stack">
         <section className="card form-grid">
-          <label className="field"><span>Name *</span><input name="name" required maxLength={100} /></label>
+<label className="field"><span>First name *</span><input name="first_name" required maxLength={50} /></label>
+          <label className="field"><span>Last name</span><input name="last_name" maxLength={50} /></label>
           <label className="field"><span>Mobile phone</span><input name="phone" type="tel" maxLength={30} /></label>
           <label className="field"><span>Email</span><input name="email" type="email" maxLength={120} /></label>
           <label className="field"><span>Where they came from</span><input name="source" maxLength={60} placeholder="Boat show, referral from Dana, dock walk" /></label>

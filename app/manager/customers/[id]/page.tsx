@@ -33,7 +33,7 @@ import { requireManager } from "@/lib/session";
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> };
 
 type Customer = {
-  id: string; name: string; phone: string; email: string; status: string; notes: string; portal_token: string;
+  id: string; name: string; first_name: string; last_name: string; phone: string; email: string; status: string; notes: string; portal_token: string;
   source: string; marketing_consent: boolean; sms_consent: boolean; consent_text: string; consent_at: string | null;
   requested_plan: string; created_at: string;
   address1: string; address2: string; city: string; state: string; postal_code: string; contact_pref: string;
@@ -204,7 +204,8 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
           <form action={updateCustomer} className="form-grid">
             {hidden("id", id)}
             {hidden("back", back)}
-            <Field label="Name" name="name" defaultValue={c.name} required />
+            <Field label="First name" name="first_name" defaultValue={c.first_name} required />
+            <Field label="Last name" name="last_name" defaultValue={c.last_name} />
             <Field label="Mobile phone" name="phone" defaultValue={c.phone} />
             <Field label="Email" name="email" defaultValue={c.email} />
             {c.status !== "pending" && c.status !== "prospect" && (
@@ -232,7 +233,8 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
             <form action={addContact} className="form-grid">
               {hidden("customer_id", id)}
               {hidden("back", back)}
-              <Field label="Name" name="name" required />
+              <Field label="First name" name="first_name" required />
+              <Field label="Last name" name="last_name" />
               <Select label="Role" name="role" options={["owner", "co-owner", "captain", "manager"].map((r) => ({ value: r, label: r }))} />
               <Field label="Phone" name="phone" />
               <Field label="Email" name="email" />

@@ -15,6 +15,7 @@ export type TemplateSeed = {
 // Merge fields a manager can use in any template.
 export const MERGE_FIELDS: [string, string][] = [
   ["{first_name}", "Customer's first name"],
+  ["{last_name}", "Customer's last name"],
   ["{name}", "Customer's full name"],
   ["{boat}", "Boat name"],
   ["{date}", "Visit date, for example Thursday, November 12"],

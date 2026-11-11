@@ -24,8 +24,8 @@ export default async function Portal({ params, searchParams }: Props) {
   const { token } = await params;
   const sp = await searchParams;
   if (!isPublicId(token)) notFound();
-  const c = await one<{ id: string; name: string; status: string; phone: string; email: string; contact_pref: string; sms_consent: boolean; promo_sms_consent: boolean; sms_opted_out_at: string | null; email_opted_out_at: string | null }>(
-    "select id, name, status, phone, email, contact_pref, sms_consent, promo_sms_consent, sms_opted_out_at, email_opted_out_at from customers where portal_token = $1",
+  const c = await one<{ id: string; name: string; first_name: string; status: string; phone: string; email: string; contact_pref: string; sms_consent: boolean; promo_sms_consent: boolean; sms_opted_out_at: string | null; email_opted_out_at: string | null }>(
+    "select id, name, first_name, status, phone, email, contact_pref, sms_consent, promo_sms_consent, sms_opted_out_at, email_opted_out_at from customers where portal_token = $1",
     [token],
   );
   if (!c || c.status === "declined") notFound();
@@ -62,7 +62,7 @@ export default async function Portal({ params, searchParams }: Props) {
       <PortalRemember token={token} name={c.name} />
       <header className="top">
         <div className="eyebrow">{businessName} · Customer</div>
-        <h1>Hi {c.name.split(" ")[0]}</h1>
+        <h1>Hi {c.first_name || c.name.split(" ")[0]}</h1>
         {c.status === "pending" && <p className="notice warn">Thanks for signing up. We&apos;re reviewing your details and will confirm your first cleaning.</p>}
       </header>
       <Notice ok={sp.ok} error={sp.error} />

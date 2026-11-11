@@ -10,6 +10,12 @@ const shot = (p, name) => p.screenshot({ path: path.join(OUT, `full-${name}.png`
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
 const plus = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const errors = [];
+// A person's name goes into two fields.
+async function fillName(scope, full) {
+  const [first, ...rest] = full.split(" ");
+  await scope.locator('input[name="first_name"]').fill(first);
+  await scope.locator('input[name="last_name"]').fill(rest.join(" "));
+}
 async function noSideScroll(p, name) { const [sw, iw] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]); assert.ok(sw <= iw + 1, `${name} scrolls sideways (${sw} > ${iw})`); }
 const pages = {};
 const log = (...a) => console.log("•", ...a);
@@ -73,9 +79,9 @@ async function pickOption(select, labelText) {
     await f.locator('input[name="name"]').fill(c);
     await submitForm(m, f, "Add crew");
   }
-  for (const [t, c] of [["Maria", "Crew A"], ["Jon", "Crew B"]]) {
+  for (const [t, c] of [["Maria Lopez", "Crew A"], ["Jon Park", "Crew B"]]) {
     const f = m.locator("form", { has: m.locator("button:has-text('Add technician')") });
-    await f.locator('input[name="name"]').fill(t);
+    await fillName(f, t);
     await pickOption(f.locator('select[name="crew_id"]'), c);
     await submitForm(m, f, "Add technician");
   }
@@ -84,7 +90,7 @@ async function pickOption(select, labelText) {
   // Customers with a plan starting today, both on Crew B
   async function newCustomer(name, phone, boat, slip, dock) {
     await m.goto(`${BASE}/manager/customers/new`);
-    await m.fill('input[name="name"]', name);
+    await fillName(m.locator("form", { has: m.locator('input[name="boat_name"]') }), name);
     await m.fill('input[name="phone"]', phone);
     await m.fill('input[name="boat_name"]', boat);
     await pickOption(m.locator('select[name="marina_id"]'), "Clipper");
@@ -104,7 +110,7 @@ async function pickOption(select, labelText) {
   await newCustomer("Luis Ortega", "415-555-0122", "Marlin", "D-3", "D");
   // Missing slip must be refused
   await m.goto(`${BASE}/manager/customers/new`);
-  await m.fill('input[name="name"]', "No Slip");
+  await fillName(m.locator("form", { has: m.locator('input[name="boat_name"]') }), "No Slip");
   await m.fill('input[name="boat_name"]', "Nowhere");
   await pickOption(m.locator('select[name="marina_id"]'), "Clipper");
   await m.locator("button:has-text('Save customer')").click();
@@ -277,7 +283,7 @@ async function pickOption(select, labelText) {
   pages.s = s;
   await s.goto(`${BASE}/customer`);
   await s.click("a:has-text('Sign up for cleanings')");
-  await s.fill('input[name="name"]', "Priya Nair");
+  await fillName(s, "Priya Nair");
   await s.fill('input[name="phone"]', "(415) 555-0199");
   await s.fill('input[name="boat_name"]', "Wavelength");
   await pickOption(s.locator('select[name="marina_id"]'), "Clipper");
@@ -365,7 +371,7 @@ async function pickOption(select, labelText) {
 
   // Prospect with email only, then a marketing template sent to prospects through approval.
   await m.goto(`${BASE}/manager/prospects/new`);
-  await m.fill('input[name="name"]', "Morgan Reyes");
+  await fillName(m.locator("form", { has: m.locator("button:has-text('Save prospect')") }), "Morgan Reyes");
   await m.fill('input[name="phone"]', "415-555-0177");
   await m.fill('input[name="email"]', "morgan@example.com");
   await m.fill('input[name="source"]', "Boat show");
@@ -407,8 +413,8 @@ async function pickOption(select, labelText) {
 
   // Exports
   const contacts = await m.evaluate(async () => (await fetch("/api/manager/export?what=contacts")).text());
-  assert.match(contacts, /Prospect,prospect,Morgan Reyes,Morgan,415-555-0177,morgan@example\.com,500 Gate 5 Rd,,Sausalito,CA,94965/);
-  assert.match(contacts, /Customer,active,Dana Whitfield,Dana,415-555-0111,,12 Bridgeway,,Sausalito,CA,94965,text,yes,[^,]+,no,,yes,/, "Dana: consent yes, then opted out yes");
+  assert.match(contacts, /Prospect,prospect,Morgan,Reyes,Morgan Reyes,415-555-0177,morgan@example\.com,500 Gate 5 Rd,,Sausalito,CA,94965/);
+  assert.match(contacts, /Customer,active,Dana,Whitfield,Dana Whitfield,415-555-0111,,12 Bridgeway,,Sausalito,CA,94965,text,yes,[^,]+,no,,yes,/, "Dana: consent yes, then opted out yes");
   const consent = await m.evaluate(async () => (await fetch("/api/manager/export?what=consent")).text());
   assert.match(consent, /Dana Whitfield,\+14155550111,sms,service,granted,"Recorded by manager: Signed service agreement/);
   assert.match(consent, /Dana Whitfield,\+14155550111,sms,all,revoked/);
@@ -437,7 +443,7 @@ async function pickOption(select, labelText) {
   sl.on("pageerror", (e) => errors.push(`sales: ${e.message}`));
   await sl.goto(`${BASE}/`);
   await sl.click('.role-card[href="/sales"]');
-  await sl.fill('input[name="name"]', "Robin");
+  await fillName(sl, "Robin Vega");
   await sl.fill('input[name="passcode"]', "crispclean");
   await sl.click("button:has-text('Sign in')");
   await sl.waitForSelector(".error"); // the technician passcode does not open Sales
@@ -480,13 +486,13 @@ async function pickOption(select, labelText) {
   await sl.click("a:has-text('Add the owner')");
   assert.equal(await sl.inputValue('input[name="boat_name"]'), "Windward");
   assert.equal(await sl.inputValue('input[name="slip"]'), "C-2");
-  await sl.fill('input[name="name"]', "Avery Stone");
+  await fillName(sl, "Avery Stone");
   await sl.fill('input[name="phone"]', "415-555");
   await sl.fill('textarea[name="note"]', "Racing in the Midwinters and wants the boat spotless.");
   await sl.fill('input[name="needed_by"]', plus(today, 9));
   await sl.click("button:has-text('Save lead')");
   await sl.waitForSelector(".notice.bad:has-text('not a valid US number')");
-  assert.equal(await sl.inputValue('input[name="name"]'), "Avery Stone");
+  assert.equal(await sl.inputValue('input[name="first_name"]'), "Avery");
   await sl.fill('input[name="phone"]', "415-555-0166");
   await sl.check('input[name="sms_consent"]');
   await sl.click("button:has-text('Save lead')");
@@ -543,7 +549,7 @@ async function pickOption(select, labelText) {
   await Promise.all([m.waitForLoadState("networkidle"), m.click(".note:has-text('Family in town') button:has-text('Mark done')")]);
   await m.waitForSelector("#notes summary:has-text('1 finished note')");
   const spottedCsv = await m.evaluate(async () => (await fetch("/api/manager/export?what=spotted")).text());
-  assert.match(spottedCsv, /Clipper Yacht Harbor,C,C-2,Windward,,,,Dull gelcoat too,owner_added,Avery Stone,415-555-0166/);
+  assert.match(spottedCsv, /Clipper Yacht Harbor,C,C-2,Windward,,,,Dull gelcoat too,owner_added,Avery,Stone,415-555-0166/);
   assert.match(spottedCsv, /Clipper Yacht Harbor,C,C-10,Kestrel/);
   const notesCsv = await m.evaluate(async () => (await fetch("/api/manager/export?what=notes")).text());
   assert.match(notesCsv, /Avery Stone,active,,Racing in the Midwinters/);
@@ -601,7 +607,7 @@ async function pickOption(select, labelText) {
   await m.goto(`${BASE}/manager/crews`);
   await del("Delete technician", "Delete Jon");
   await ok(m);
-  assert.equal(await m.locator('input[name="name"][value="Jon"]').count(), 0, "technician gone");
+  assert.equal(await m.locator('input[name="first_name"][value="Jon"]').count(), 0, "technician gone");
   log("customer and technician deleted");
 
   // Replace a customer's portal link: old link dies, new one works

@@ -27,7 +27,10 @@ export default async function NewLead({ searchParams }: { searchParams: SP }) {
         {spotted && <input type="hidden" name="spotted_id" value={spotted.id} />}
         <section className="card stack">
           <h2>Person</h2>
-          <label className="field"><span>Name *</span><input name="name" required maxLength={100} autoComplete="off" /></label>
+<div className="two">
+            <label className="field"><span>First name *</span><input name="first_name" required maxLength={50} autoComplete="off" /></label>
+            <label className="field"><span>Last name</span><input name="last_name" maxLength={50} autoComplete="off" /></label>
+          </div>
           <div className="two">
             <label className="field"><span>Mobile phone</span><input name="phone" type="tel" maxLength={30} autoComplete="off" /></label>
             <label className="field"><span>Email</span><input name="email" type="email" maxLength={120} autoComplete="off" /></label>

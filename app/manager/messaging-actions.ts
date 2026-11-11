@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { audit } from "@/lib/audit";
 import { one, q, tx } from "@/lib/db";
-import { field, flag } from "@/lib/http";
+import { field, flag, personName, saveNameParts } from "@/lib/http";
 import { isUuid, newPublicId } from "@/lib/ids";
 import {
   logConsent,
@@ -305,10 +305,11 @@ export async function stopTexts(fd: FormData) {
 export async function createProspect(fd: FormData) {
   await requireManager();
   const back = "/manager/prospects/new";
-  const name = field(fd, "name", 100);
+  const person = personName(fd);
+  const name = person.name;
   const phone = field(fd, "phone", 30);
   const email = field(fd, "email", 120);
-  if (!name) fail(fd, "Enter a name.", back);
+  if (!person.first) fail(fd, "Enter a first name.", back);
   if (phone && !normalizePhone(phone)) fail(fd, "That phone number is not a valid US number.", back);
   if (email && !normalizeEmail(email)) fail(fd, "That email address does not look right.", back);
   const dup = await one<{ id: string; name: string }>(
@@ -335,6 +336,7 @@ export async function createProspect(fd: FormData) {
         ],
       )
     )[0];
+    await saveNameParts(t, "customers", row.id, person);
     const addr = normalizePhone(phone) ?? phone;
     if (sms) await logConsent(t, { customerId: row.id, name, address: addr, channel: "sms", purpose: "service", action: "granted", method: `Recorded by manager: ${how}`, wording: SERVICE_SMS_WORDING, actor: ACTOR });
     if (promo) await logConsent(t, { customerId: row.id, name, address: addr, channel: "sms", purpose: "marketing", action: "granted", method: `Recorded by manager: ${how}`, wording: MARKETING_SMS_WORDING, actor: ACTOR });

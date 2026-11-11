@@ -66,3 +66,18 @@ test("transactions roll back", async () => {
   const ghost = await one("select 1 from crews where name = 'Ghost'");
   assert.equal(ghost, null);
 });
+
+test("existing single-field names split into first and last", async () => {
+  const { ONE_TIME } = await import("../lib/schema");
+  const { newPublicId } = await import("../lib/ids");
+  const names = ["Cher", "Mary Ann Smith", "  Luis   Ortega ", "Jean-Luc de la Cruz"];
+  const ids: string[] = [];
+  for (const n of names) ids.push((await q<{ id: string }>("insert into customers (name, portal_token) values ($1, $2) returning id", [n, newPublicId()]))[0].id);
+  const already = (await q<{ id: string }>("insert into customers (name, first_name, last_name, portal_token) values ('Ana Maria Diaz', 'Ana Maria', 'Diaz', $1) returning id", [newPublicId()]))[0].id;
+  for (const stmt of ONE_TIME.find((m) => m.key === "split_names")!.statements) await q(stmt);
+  const rows = await q<{ first_name: string; last_name: string }>("select first_name, last_name from customers where id = any($1::uuid[]) order by array_position($1::uuid[], id)", [ids]);
+  assert.deepEqual(rows.map((r) => [r.first_name, r.last_name]), [["Cher", ""], ["Mary", "Ann Smith"], ["Luis", "Ortega"], ["Jean-Luc", "de la Cruz"]]);
+  // A name already entered in two parts is left alone.
+  const kept = await q<{ first_name: string; last_name: string }>("select first_name, last_name from customers where id = $1", [already]);
+  assert.deepEqual([kept[0].first_name, kept[0].last_name], ["Ana Maria", "Diaz"]);
+});

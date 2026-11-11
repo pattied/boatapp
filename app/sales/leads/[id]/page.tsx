@@ -17,8 +17,8 @@ export default async function Lead({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = await searchParams;
   const c = isUuid(id)
-    ? await one<{ id: string; name: string; phone: string; email: string; status: string; interest: string; source: string; created_at: string; address1: string; address2: string; city: string; state: string; postal_code: string; sms_consent: boolean; promo_sms_consent: boolean; sms_opted_out_at: string | null }>(
-        "select id, name, phone, email, status, interest, source, created_at, address1, address2, city, state, postal_code, sms_consent, promo_sms_consent, sms_opted_out_at from customers where id = $1",
+    ? await one<{ id: string; name: string; first_name: string; last_name: string; phone: string; email: string; status: string; interest: string; source: string; created_at: string; address1: string; address2: string; city: string; state: string; postal_code: string; sms_consent: boolean; promo_sms_consent: boolean; sms_opted_out_at: string | null }>(
+        "select id, name, first_name, last_name, phone, email, status, interest, source, created_at, address1, address2, city, state, postal_code, sms_consent, promo_sms_consent, sms_opted_out_at from customers where id = $1",
         [id],
       )
     : null;
@@ -76,7 +76,10 @@ export default async function Lead({ params, searchParams }: Props) {
       <form action={updateLead} className="card stack">
         <h2>Contact details</h2>
         <input type="hidden" name="id" value={id} />
-        <label className="field"><span>Name *</span><input name="name" required defaultValue={c.name} maxLength={100} /></label>
+<div className="two">
+            <label className="field"><span>First name *</span><input name="first_name" required maxLength={50} defaultValue={c.first_name} /></label>
+            <label className="field"><span>Last name</span><input name="last_name" maxLength={50} defaultValue={c.last_name} /></label>
+          </div>
         <div className="two">
           <label className="field"><span>Mobile phone</span><input name="phone" type="tel" defaultValue={c.phone} maxLength={30} /></label>
           <label className="field"><span>Email</span><input name="email" type="email" defaultValue={c.email} maxLength={120} /></label>

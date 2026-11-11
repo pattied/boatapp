@@ -1,6 +1,6 @@
 import { audit } from "./audit";
 import { one, q, tx } from "./db";
-import { field, flag } from "./http";
+import { field, flag, personName, saveNameParts } from "./http";
 import { isUuid, newPublicId } from "./ids";
 import { logConsent, MARKETING_SMS_WORDING, normalizeEmail, normalizePhone, SERVICE_SMS_WORDING } from "./messaging/compliance";
 import { BERTH_TYPES } from "./repo";
@@ -78,10 +78,11 @@ export async function saveSpotted(i: SpotInput, by: string): Promise<{ id: strin
 
 // Creates a lead (a prospect) with the same details as a customer. Consent rules match the manager's prospect form.
 export async function createLead(fd: FormData, by: string): Promise<{ id: string } | { error: string }> {
-  const name = field(fd, "name", 100);
+  const person = personName(fd);
+  const name = person.name;
   const phone = field(fd, "phone", 30);
   const email = field(fd, "email", 120);
-  if (!name) return { error: "Enter the person's name." };
+  if (!person.first) return { error: "Enter the person's first name." };
   if (phone && !normalizePhone(phone)) return { error: "That phone number is not a valid US number." };
   if (email && !normalizeEmail(email)) return { error: "That email address does not look right." };
   if (!phone && !email && !field(fd, "address1", 120)) return { error: "Add at least one way to reach them: phone, email or mailing address." };
@@ -140,6 +141,7 @@ export async function createLead(fd: FormData, by: string): Promise<{ id: string
         ],
       );
     }
+    await saveNameParts(t, "customers", c.id, person);
     const addr = normalizePhone(phone) ?? phone;
     if (sms) await logConsent(t, { customerId: c.id, name, address: addr, channel: "sms", purpose: "service", action: "granted", method: `Recorded by ${by}: ${how}`, wording: SERVICE_SMS_WORDING, actor: by });
     if (promo) await logConsent(t, { customerId: c.id, name, address: addr, channel: "sms", purpose: "marketing", action: "granted", method: `Recorded by ${by}: ${how}`, wording: MARKETING_SMS_WORDING, actor: by });

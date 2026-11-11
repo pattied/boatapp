@@ -13,10 +13,16 @@ export default function SalesSignIn({ businessName }: { businessName: string }) 
         <h1>Sales sign-in</h1>
       </header>
       <form className="card stack" action={action}>
-        <label className="field">
-          <span>Your name</span>
-          <input name="name" autoComplete="name" required maxLength={40} defaultValue={state.name ?? ""} key={state.name ?? ""} />
-        </label>
+        <div className="two" key={`${state.first ?? ""}|${state.last ?? ""}`}>
+          <label className="field">
+            <span>First name</span>
+            <input name="first_name" autoComplete="given-name" required maxLength={30} defaultValue={state.first ?? ""} />
+          </label>
+          <label className="field">
+            <span>Last name</span>
+            <input name="last_name" autoComplete="family-name" required maxLength={30} defaultValue={state.last ?? ""} />
+          </label>
+        </div>
         <label className="field">
           <span>Sales passcode</span>
           <input type="password" name="passcode" autoComplete="current-password" required />

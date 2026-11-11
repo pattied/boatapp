@@ -71,11 +71,12 @@ export async function getTemplate(keyOrId: string): Promise<Template | null> {
 // Standard merge values for a customer (and a visit, when given).
 export async function varsFor(customerId: string, jobId?: string | null, extra: Vars = {}): Promise<Vars> {
   const { businessName } = getConfig();
-  const c = await one<{ name: string; portal_token: string }>("select name, portal_token from customers where id = $1", [customerId]);
+  const c = await one<{ name: string; first_name: string; last_name: string; portal_token: string }>("select name, first_name, last_name, portal_token from customers where id = $1", [customerId]);
   const vars: Vars = {
     business: businessName,
     name: c?.name ?? "",
-    first_name: (c?.name ?? "").split(" ")[0],
+    first_name: c?.first_name || (c?.name ?? "").split(" ")[0],
+    last_name: c?.last_name ?? "",
     link: c ? `${baseUrl()}/portal/${c.portal_token}` : "",
   };
   if (jobId) {

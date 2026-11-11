@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { audit } from "@/lib/audit";
 import { isDate, todayLA } from "@/lib/dates";
 import { one, q, tx } from "@/lib/db";
-import { field, flag } from "@/lib/http";
+import { field, flag, personName, saveNameParts } from "@/lib/http";
 import { isPublicId, isUuid, newPublicId } from "@/lib/ids";
 import { after } from "next/server";
 import { logConsent, MARKETING_SMS_WORDING, normalizeEmail, normalizePhone, optOutEmail, optOutPhone, SERVICE_SMS_WORDING } from "@/lib/messaging/compliance";
@@ -127,14 +127,15 @@ async function createSignUp(fd: FormData) {
     throw new Invalid(msg);
   };
   if (field(fd, "website")) redirect("/signup/thanks"); // hidden field: only bots fill it in
-  const name = field(fd, "name", 100);
+  const person = personName(fd);
+  const name = person.name;
   const phone = field(fd, "phone", 30);
   const email = field(fd, "email", 120);
   const boatName = field(fd, "boat_name", 80);
   const marinaId = field(fd, "marina_id");
   const slip = field(fd, "slip", 20);
   const berth = field(fd, "berth_type", 20);
-  if (!name) fail("Enter your name.");
+  if (!person.first || !person.last) fail("Enter your first and last name.");
   if (!normalizePhone(phone)) fail("Enter a US mobile number with area code.");
   if (!boatName) fail("Enter your boat's name.");
   if (!isUuid(marinaId)) fail("Choose your marina.");
@@ -196,6 +197,7 @@ async function createSignUp(fd: FormData) {
       `insert into plans (boat_id, service_id, anchor_date, interval_weeks, active) values ($1, $2, $3, $4, false)`,
       [boat.id, service ? serviceId : null, todayLA(), interval],
     );
+    await saveNameParts(t, "customers", c.id, person);
     const addr = normalizePhone(phone) ?? phone;
     if (smsConsent) await logConsent(t, { customerId: c.id, name, address: addr, channel: "sms", purpose: "service", action: "granted", method: "Ticked the box on the sign-up form", wording: SERVICE_SMS_WORDING, actor: "customer" });
     if (promoConsent) await logConsent(t, { customerId: c.id, name, address: addr, channel: "sms", purpose: "marketing", action: "granted", method: "Ticked the box on the sign-up form", wording: MARKETING_SMS_WORDING, actor: "customer" });

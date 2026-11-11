@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { audit } from "@/lib/audit";
 import { one, q } from "@/lib/db";
-import { field } from "@/lib/http";
+import { field, personName, saveNameParts } from "@/lib/http";
 import { isUuid } from "@/lib/ids";
 import { normalizeEmail, normalizePhone } from "@/lib/messaging/compliance";
 import { createLead, saveSpotted, SPOT_STATUS } from "@/lib/sales";
@@ -99,10 +99,12 @@ export async function updateLead(fd: FormData) {
   const back = `/sales/leads/${id}`;
   const c = await one<{ status: string; phone: string }>("select status, phone from customers where id = $1", [id]);
   if (!c || c.status !== "prospect") go("/sales/leads", "error", "That person is a customer now. Ask a manager to change their details.");
-  const name = field(fd, "name", 100);
+  const person = personName(fd);
+  const name = person.name;
   const phone = field(fd, "phone", 30);
   const email = field(fd, "email", 120);
-  if (!name) go(back, "error", "Enter the name.");
+  if (!person.first) go(back, "error", "Enter the first name.");
+  await saveNameParts(q, "customers", id, person);
   if (phone && !normalizePhone(phone)) go(back, "error", "That phone number is not a valid US number.");
   if (email && !normalizeEmail(email)) go(back, "error", "That email address does not look right.");
   const digits = (v: string) => v.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
