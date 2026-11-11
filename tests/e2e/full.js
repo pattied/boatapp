@@ -413,8 +413,8 @@ async function pickOption(select, labelText) {
 
   // Exports
   const contacts = await m.evaluate(async () => (await fetch("/api/manager/export?what=contacts")).text());
-  assert.match(contacts, /Prospect,prospect,Morgan,Reyes,Morgan Reyes,415-555-0177,morgan@example\.com,500 Gate 5 Rd,,Sausalito,CA,94965/);
-  assert.match(contacts, /Customer,active,Dana,Whitfield,Dana Whitfield,415-555-0111,,12 Bridgeway,,Sausalito,CA,94965,text,yes,[^,]+,no,,yes,/, "Dana: consent yes, then opted out yes");
+  assert.match(contacts, /Prospect,prospect,no,,Morgan,Reyes,Morgan Reyes,415-555-0177,morgan@example\.com,500 Gate 5 Rd,,Sausalito,CA,94965/);
+  assert.match(contacts, /Customer,active,no,,Dana,Whitfield,Dana Whitfield,415-555-0111,,12 Bridgeway,,Sausalito,CA,94965,text,yes,[^,]+,no,,yes,/, "Dana: consent yes, then opted out yes");
   const consent = await m.evaluate(async () => (await fetch("/api/manager/export?what=consent")).text());
   assert.match(consent, /Dana Whitfield,\+14155550111,sms,service,granted,"Recorded by manager: Signed service agreement/);
   assert.match(consent, /Dana Whitfield,\+14155550111,sms,all,revoked/);
@@ -519,6 +519,92 @@ async function pickOption(select, labelText) {
   assert.match(await sl.textContent("body"), /is now a customer/);
   assert.ok(!(await sl.textContent("body")).includes("415-555-0111"));
   log("sales role: dock walk (with no signal), lead from a boat, dated note, access limits");
+
+  // Sales adds a marina with docks.
+  await sl.goto(`${BASE}/sales`);
+  await sl.click("a.btn:has-text('Add a marina')");
+  const mf = sl.locator("form", { has: sl.locator("button:has-text('Add marina')") });
+  await mf.locator('input[name="name"]').fill("Pelican Harbor");
+  await mf.locator('input[name="address"]').fill("1 Johnson St, Sausalito");
+  await mf.locator('input[name="docks"]').fill("A, B, Dock C");
+  await Promise.all([sl.waitForLoadState("networkidle"), mf.locator("button").click()]);
+  await sl.waitForSelector(".notice.good:has-text('Pelican Harbor added with 3 dock(s)')");
+  assert.equal(await sl.locator("section.card:has(h2:has-text('Pelican Harbor')) a.chip").count(), 3);
+  // Import a pasted list: columns are guessed from the headings, bad and duplicate rows are skipped with reasons.
+  await sl.click(".sales-nav a:has-text('Import a list')");
+  await sl.fill("textarea", [
+    "First Name,Last Name,Mobile,E-mail,Boat,Marina,Dock,Slip,Comments",
+    'Jordan,Blake,(415) 555-0131,jordan@example.com,Petrel,Pelican Harbor,A,A-7,"Asked about teak, call after 5"',
+    "Sam,Rivera,,sam@example.com,Tern,Pelican Harbor,B,B-2,",
+    "Chris,Nolan,415-555-01,,,,,,",
+    "Avery,Stone,415-555-0166,,,,,,",
+    "Dana,Whitfield,415-555-0111,,,,,,",
+    "Jordan,Again,,JORDAN@example.com,,,,,",
+  ].join("\n"));
+  await sl.click("button:has-text('Use pasted rows')");
+  await sl.waitForSelector("text=6 people found");
+  assert.equal(await sl.locator('select[aria-label="Field for Mobile"]').inputValue(), "phone");
+  assert.equal(await sl.locator('select[aria-label="Field for Boat"]').inputValue(), "boat_name");
+  assert.equal(await sl.locator('select[aria-label="Field for Comments"]').inputValue(), "note");
+  await sl.fill('input[placeholder="Boat show November"]', "Pelican tenants");
+  await sl.click("button:has-text('Import 6 people')");
+  await sl.waitForSelector(".notice.good:has-text('2 added, 0 updated, 4 skipped')");
+  const skippedText = await sl.textContent("section:has(h2:has-text('Skipped rows'))");
+  assert.match(skippedText, /Row 4 \(Chris Nolan\): Phone "415-555-01" is not a valid US number/);
+  assert.match(skippedText, /Row 5 \(Avery Stone\): Already on file as Avery Stone/);
+  assert.match(skippedText, /Row 6 \(Dana Whitfield\): Dana Whitfield is already a customer/);
+  assert.match(skippedText, /Row 7 \(Jordan Again\): Same phone or email as an earlier row/);
+  await noSideScroll(sl, "import result");
+  // The list, by category. Move one to Active lead in bulk, one to Do not contact.
+  await sl.click("a:has-text('See this list')");
+  await sl.waitForSelector(".lead-row:has-text('Jordan Blake')");
+  assert.equal(await sl.locator(".lead-row").count(), 2);
+  assert.match(await sl.locator(".lead-row:has-text('Jordan Blake')").textContent(), /Petrel \(A-7\)/);
+  await sl.check('input[aria-label="Select Jordan Blake"]');
+  await sl.selectOption('select[name="stage"]', "lead");
+  await Promise.all([sl.waitForLoadState("networkidle"), sl.click(".bulk-bar button:has-text('Move')")]);
+  await sl.waitForSelector(".notice.good:has-text('1 moved to Active lead')");
+  await sl.check('input[aria-label="Select Sam Rivera"]');
+  await sl.selectOption('select[name="stage"]', "dnc");
+  await Promise.all([sl.waitForLoadState("networkidle"), sl.click(".bulk-bar button:has-text('Move')")]);
+  await sl.waitForSelector(".notice.good:has-text('1 moved to Do not contact')");
+  await sl.goto(`${BASE}/sales/leads?stage=lead`);
+  assert.equal(await sl.locator(".lead-row:has-text('Jordan Blake')").count(), 1);
+  assert.match(await sl.textContent(".tabs"), /Active lead \(1\)/);
+  assert.match(await sl.textContent(".tabs"), /Do not contact \(1\)/);
+  // Sales cannot lift a do-not-contact; the lead page offers no way to call or email them.
+  await sl.goto(`${BASE}/sales/leads?stage=dnc`);
+  await sl.check('input[aria-label="Select Sam Rivera"]');
+  await sl.selectOption('select[name="stage"]', "prospect");
+  await Promise.all([sl.waitForLoadState("networkidle"), sl.click(".bulk-bar button:has-text('Move')")]);
+  await sl.waitForSelector(".notice.bad:has-text('only a manager can lift that')");
+  await sl.click(".lead-row:has-text('Sam Rivera') a");
+  await sl.waitForSelector(".notice.bad:has-text('Marked do not contact')");
+  assert.equal(await sl.locator('a[href^="mailto:"]').count(), 0);
+  // Sales makes Jordan a customer: the record leaves Sales and lands on the manager's Needs attention.
+  await sl.goto(`${BASE}/sales/leads?stage=lead`);
+  await sl.click(".lead-row:has-text('Jordan Blake') a");
+  await sl.waitForSelector("h1:has-text('Jordan Blake')");
+  await sl.waitForLoadState("networkidle");
+  await sl.selectOption('select[name="stage"]', "customer");
+  assert.equal(await sl.inputValue('select[name="stage"]'), "customer");
+  await Promise.all([sl.waitForLoadState("networkidle"), sl.click("button:has-text('Move')")]);
+  await sl.waitForSelector("text=is now a customer");
+  await m.goto(`${BASE}/manager`);
+  assert.match(await m.locator("section.attn", { hasText: "New customers without a cleaning plan" }).textContent(), /Jordan Blake.*made a customer by Robin Vega/);
+  // The manager cannot message someone marked do not contact, by any channel.
+  await m.goto(`${BASE}/manager/customers?status=prospect`);
+  await m.click("a:has-text('Sam Rivera')");
+  await m.click(".page-head a.btn:has-text('Message')");
+  const dncSend = m.locator("form", { has: m.locator("button:has-text('Send')") }).first();
+  await dncSend.locator('select[name="channel"]').selectOption("email");
+  await dncSend.locator('input[name="subject"]').fill("Hello");
+  await dncSend.locator('textarea[name="body"]').fill("Hello Sam");
+  await Promise.all([m.waitForLoadState("networkidle"), dncSend.locator("button:has-text('Send')").click()]);
+  await m.waitForSelector(".notice.bad:has-text('Marked do not contact')");
+  const mailable = await m.evaluate(async () => (await fetch("/api/manager/export?what=contacts")).text());
+  assert.match(mailable, /Do not contact,dnc,yes,Pelican tenants,Sam,Rivera/);
+  log("sales: marina added, list imported with skips explained, categories moved in bulk, do-not-contact enforced");
 
   // Manager: the lead is a prospect with its boat; convert, then the dated note shows whether a cleaning is booked in time.
   await m.goto(`${BASE}/manager/customers?status=prospect`);

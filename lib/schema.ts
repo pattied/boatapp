@@ -368,6 +368,14 @@ alter table technicians add column if not exists first_name text not null defaul
 --;
 alter table technicians add column if not exists last_name text not null default ''
 --;
+alter table customers add column if not exists list_name text not null default ''
+--;
+alter table customers add column if not exists converted_at timestamptz
+--;
+alter table customers add column if not exists converted_by text not null default ''
+--;
+alter table customers add column if not exists stage_changed_at timestamptz
+--;
 create table if not exists spotted_boats (
   id uuid primary key default gen_random_uuid(),
   client_id text unique,
@@ -433,6 +441,13 @@ export const ONE_TIME: { key: string; statements: string[] }[] = [
     statements: [
       "alter table customers drop constraint if exists customers_status_check",
       "alter table customers add constraint customers_status_check check (status in ('prospect', 'pending', 'active', 'paused', 'inactive', 'declined'))",
+    ],
+  },
+  {
+    key: "customers_status_lead_dnc",
+    statements: [
+      "alter table customers drop constraint if exists customers_status_check",
+      "alter table customers add constraint customers_status_check check (status in ('prospect', 'lead', 'dnc', 'pending', 'active', 'paused', 'inactive', 'declined'))",
     ],
   },
   {

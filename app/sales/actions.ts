@@ -6,8 +6,10 @@ import { one, q } from "@/lib/db";
 import { field, personName, saveNameParts } from "@/lib/http";
 import { isUuid } from "@/lib/ids";
 import { normalizeEmail, normalizePhone } from "@/lib/messaging/compliance";
+import { IMPORT_FIELDS, importLeads, type ImportRow, type ImportSummary } from "@/lib/import";
 import { createLead, saveSpotted, SPOT_STATUS } from "@/lib/sales";
 import { requireSales } from "@/lib/session";
+import { isLeadStage } from "@/lib/stages";
 
 function go(path: string, key: "ok" | "error", msg: string): never {
   redirect(`${path}${path.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(msg)}`);
@@ -98,7 +100,7 @@ export async function updateLead(fd: FormData) {
   if (!isUuid(id)) go("/sales/leads", "error", "Lead not found.");
   const back = `/sales/leads/${id}`;
   const c = await one<{ status: string; phone: string }>("select status, phone from customers where id = $1", [id]);
-  if (!c || c.status !== "prospect") go("/sales/leads", "error", "That person is a customer now. Ask a manager to change their details.");
+  if (!c || !isLeadStage(c.status)) go("/sales/leads", "error", "That person is a customer now. Ask a manager to change their details.");
   const person = personName(fd);
   const name = person.name;
   const phone = field(fd, "phone", 30);
@@ -126,4 +128,61 @@ export async function updateLead(fd: FormData) {
   }
   await audit(q, user.name, "update", "lead", id);
   go(back, "ok", phoneChanged ? "Saved. The phone number changed, so text permission was cleared." : "Saved.");
+}
+
+// ---------- Marinas ----------
+
+export async function addMarina(fd: FormData) {
+  const user = await requireSales();
+  const name = field(fd, "name", 80);
+  if (!name) go("/sales/marinas", "error", "Enter the marina's name.");
+  const existing = await one<{ id: string }>("select id from marinas where lower(name) = lower($1)", [name]);
+  if (existing) go("/sales/marinas", "error", `${name} is already listed.`);
+  const m = (await one<{ id: string }>("insert into marinas (name, address, notes) values ($1, $2, $3) returning id", [name, field(fd, "address", 200), field(fd, "notes", 500)]))!;
+  // Docks typed as "A, B, C" are added in one go.
+  const docks = [...new Set(field(fd, "docks", 300).split(/[,;\n]/).map((d) => d.trim().replace(/^dock\s+/i, "").slice(0, 40)).filter(Boolean))].slice(0, 40);
+  for (const d of docks) await q("insert into docks (marina_id, name) values ($1, $2)", [m.id, d]);
+  await audit(q, user.name, "create", "marina", m.id, { name, docks: docks.length, by: "sales" });
+  go("/sales/marinas", "ok", `${name} added${docks.length ? ` with ${docks.length} dock(s)` : ""}. A manager adds gates and gate codes.`);
+}
+
+export async function addDocks(fd: FormData) {
+  const user = await requireSales();
+  const marinaId = field(fd, "marina_id");
+  if (!isUuid(marinaId) || !(await one("select 1 from marinas where id = $1", [marinaId]))) go("/sales/marinas", "error", "Marina not found.");
+  const names = [...new Set(field(fd, "docks", 300).split(/[,;\n]/).map((d) => d.trim().replace(/^dock\s+/i, "").slice(0, 40)).filter(Boolean))].slice(0, 40);
+  if (!names.length) go("/sales/marinas", "error", "Type at least one dock name.");
+  let added = 0;
+  for (const d of names) {
+    const r = await q("insert into docks (marina_id, name) select $1, $2 where not exists (select 1 from docks where marina_id = $1 and lower(name) = lower($2)) returning id", [marinaId, d]);
+    added += r.length;
+  }
+  await audit(q, user.name, "create", "dock", marinaId, { added, by: "sales" });
+  go("/sales/marinas", "ok", added ? `${added} dock(s) added.` : "Those docks were already listed.");
+}
+
+// ---------- List import ----------
+
+export async function runImport(payload: string): Promise<ImportSummary | { error: string }> {
+  const user = await requireSales();
+  let data: { rows?: unknown; listName?: unknown; stage?: unknown; duplicates?: unknown; firstRow?: unknown };
+  try {
+    data = JSON.parse(payload);
+  } catch {
+    return { error: "The list could not be read. Try again." };
+  }
+  if (!Array.isArray(data.rows) || !data.rows.length) return { error: "The list has no rows." };
+  if (data.rows.length > 500) return { error: "Send at most 500 rows at a time." };
+  const allowed = new Set(IMPORT_FIELDS.map(([k]) => k));
+  const rows: ImportRow[] = data.rows.map((r) => {
+    const o: ImportRow = {};
+    if (r && typeof r === "object") for (const [k, v] of Object.entries(r as Record<string, unknown>)) if (allowed.has(k) && typeof v === "string") o[k] = v.slice(0, 2000);
+    return o;
+  });
+  const listName = (typeof data.listName === "string" ? data.listName : "").trim().slice(0, 80) || `List ${new Date().toISOString().slice(0, 10)}`;
+  return importLeads(
+    rows,
+    { listName, stage: data.stage === "lead" ? "lead" : "prospect", duplicates: data.duplicates === "fill" ? "fill" : "skip", firstRow: Number.isInteger(data.firstRow) ? (data.firstRow as number) : 2 },
+    user.name,
+  );
 }

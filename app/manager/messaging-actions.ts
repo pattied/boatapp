@@ -201,8 +201,9 @@ export async function retryMessage(fd: FormData) {
 
 const AUDIENCES: Record<string, string> = {
   active: "c.status = 'active'",
-  prospects: "c.status = 'prospect'",
-  all: "c.status in ('active', 'paused', 'prospect')",
+  prospects: "c.status in ('prospect', 'lead')",
+  leads: "c.status = 'lead'",
+  all: "c.status in ('active', 'paused', 'prospect', 'lead')",
 };
 
 // Prepares one message per person in a group. Nothing is sent: every message waits for approval,
@@ -350,7 +351,7 @@ export async function convertProspect(fd: FormData) {
   await requireManager();
   const id = field(fd, "id");
   if (!isUuid(id)) fail(fd, "Prospect not found.");
-  await q("update customers set status = 'active' where id = $1 and status = 'prospect'", [id]);
+  await q("update customers set status = 'active', converted_at = now(), converted_by = 'manager', stage_changed_at = now() where id = $1 and status in ('prospect', 'lead', 'dnc')", [id]);
   await audit(q, ACTOR, "convert", "prospect", id);
   done(fd, "Now a customer. Add their boat and cleaning plan below.", `/manager/customers/${id}`);
 }

@@ -6,6 +6,7 @@ import { one, q } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
 import { BOAT_TYPES, places, SLIP_ORDER, SPOTTED_SELECT, SPOT_STATUS, type Spotted } from "@/lib/sales";
 import { requireSales } from "@/lib/session";
+import { isLeadStage } from "@/lib/stages";
 
 type SP = Promise<{ marina?: string; dock?: string; ok?: string; error?: string }>;
 
@@ -39,6 +40,7 @@ export default async function Walk({ searchParams }: { searchParams: SP }) {
             </section>
           );
         })}
+        <p className="small"><Link href="/sales/marinas">Add a marina with its address and docks</Link>, or use the quick form below.</p>
         <form action={addPlace} className="card stack">
           <h2>A marina that is not listed</h2>
           <label className="field"><span>Marina name</span><input name="marina_name" maxLength={80} required placeholder="Schoonmaker Point Marina" /></label>
@@ -60,7 +62,7 @@ export default async function Walk({ searchParams }: { searchParams: SP }) {
       [marina.id, dock?.id ?? null],
     ),
   ]);
-  const customers = known.filter((k) => k.status !== "prospect");
+  const customers = known.filter((k) => !isLeadStage(k.status));
 
   return (
     <>

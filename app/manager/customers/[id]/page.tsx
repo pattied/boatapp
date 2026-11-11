@@ -29,6 +29,8 @@ import { q, one } from "@/lib/db";
 import { isUuid } from "@/lib/ids";
 import { JOB_SELECT, locationText, lookups, type JobRow } from "@/lib/repo";
 import { requireManager } from "@/lib/session";
+import { setStage } from "@/app/actions/stage";
+import { isLeadStage, MOVE_TARGETS, STAGE_LABEL } from "@/lib/stages";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> };
 
@@ -38,7 +40,7 @@ type Customer = {
   requested_plan: string; created_at: string;
   address1: string; address2: string; city: string; state: string; postal_code: string; contact_pref: string;
   promo_sms_consent: boolean; promo_sms_consent_at: string | null; sms_opted_out_at: string | null; email_opted_out_at: string | null;
-  interest: string;
+  interest: string; list_name: string;
 };
 type Boat = {
   id: string; name: string; make_model: string; length_ft: number | null; hull_color: string; marina_id: string | null;
@@ -139,12 +141,18 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
         </section>
       )}
 
-      {c.status === "prospect" && (
+      {isLeadStage(c.status) && (
         <section className="card stack attn">
-          <h2>Prospect</h2>
+          <h2>{STAGE_LABEL[c.status]}</h2>
           <p className="small">
-            Not a customer yet.{c.interest ? ` Interested in: ${c.interest}.` : ""}{c.source ? ` Source: ${c.source}.` : ""} Added {fmtDateTime(c.created_at)}.
+            Not a customer yet.{c.interest ? ` Interested in: ${c.interest}.` : ""}{c.source ? ` Source: ${c.source}.` : ""}{c.list_name ? ` List: ${c.list_name}.` : ""} Added {fmtDateTime(c.created_at)}.
           </p>
+          <form action={setStage} className="row wrap">
+            {hidden("ids", id)}
+            {hidden("back", back)}
+            <Select label="Category" name="stage" defaultValue={c.status} options={MOVE_TARGETS.filter(([v]) => v !== "customer").map(([v, l]) => ({ value: v, label: l }))} />
+            <Submit tone="plain">Save category</Submit>
+          </form>
           <form action={convertProspect} className="row wrap">
             {hidden("id", id)}
             {hidden("back", back)}
@@ -156,7 +164,7 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
 
       <NotesCard customerId={id} notes={notes} boats={boats.map((b) => ({ id: b.id, name: b.name }))} back={back} today={todayLA()} jobLink={boats[0] ? `/manager/jobs/new?boat=${boats[0].id}` : undefined} />
 
-      <details className="card" open={c.status === "prospect"}>
+      <details className="card" open={isLeadStage(c.status)}>
         <summary><h2>Mailing address, contact preference and permissions</h2></summary>
         <form action={saveContactSettings} className="form-grid">
           {hidden("id", id)}
@@ -208,7 +216,7 @@ export default async function CustomerDetail({ params, searchParams }: Props) {
             <Field label="Last name" name="last_name" defaultValue={c.last_name} />
             <Field label="Mobile phone" name="phone" defaultValue={c.phone} />
             <Field label="Email" name="email" defaultValue={c.email} />
-            {c.status !== "pending" && c.status !== "prospect" && (
+            {c.status !== "pending" && !isLeadStage(c.status) && (
               <Select label="Status" name="status" defaultValue={c.status === "inactive" ? "inactive" : "active"} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive (no new visits)" }]} />
             )}
             <label className="field wide"><span>Internal notes</span><textarea name="notes" defaultValue={c.notes} rows={2} /></label>

@@ -3,10 +3,11 @@ import { Badge, Empty, Notice, PageHead } from "@/components/ui";
 import { fmtDay } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { requireManager } from "@/lib/session";
+import { isLeadStage, STAGE_LABEL } from "@/lib/stages";
 
 type SP = Promise<{ q?: string; status?: string; ok?: string; error?: string }>;
 
-const TONE: Record<string, string> = { prospect: "idle", active: "good", pending: "warn", paused: "warn", inactive: "idle", declined: "idle" };
+const TONE: Record<string, string> = { lead: "warn", dnc: "bad", prospect: "idle", active: "good", pending: "warn", paused: "warn", inactive: "idle", declined: "idle" };
 
 export default async function Customers({ searchParams }: { searchParams: SP }) {
   await requireManager();
@@ -31,14 +32,14 @@ export default async function Customers({ searchParams }: { searchParams: SP }) 
      from customers c
      where ($1 = '' or c.name ilike '%' || $1 || '%' or c.phone ilike '%' || $1 || '%' or c.email ilike '%' || $1 || '%'
             or exists (select 1 from boats b where b.customer_id = c.id and b.name ilike '%' || $1 || '%'))
-       and (case when $2 = '' then c.status <> 'prospect' else c.status = $2 end)
+       and (case when $2 = '' then c.status not in ('prospect', 'lead', 'dnc') when $2 = 'prospect' then c.status in ('prospect', 'lead', 'dnc') else c.status = $2 end)
      order by c.status = 'pending' desc, c.last_name, c.first_name, c.name`,
     [term, status],
   );
   return (
     <>
-      <PageHead title={status === "prospect" ? "Prospects" : "Customers"} sub={`${rows.length} shown`}>
-        <Link className="btn" href={status === "prospect" ? "/manager/customers" : "/manager/customers?status=prospect"}>{status === "prospect" ? "Customers" : "Prospects"}</Link>
+      <PageHead title={status === "prospect" ? "Prospects and leads" : "Customers"} sub={`${rows.length} shown`}>
+        <Link className="btn" href={status === "prospect" ? "/manager/customers" : "/manager/customers?status=prospect"}>{status === "prospect" ? "Customers" : "Prospects and leads"}</Link>
         <Link className="btn" href="/manager/prospects/new">New prospect</Link>
         <Link className="btn primary" href="/manager/customers/new">New customer</Link>
       </PageHead>
@@ -47,7 +48,7 @@ export default async function Customers({ searchParams }: { searchParams: SP }) 
         <input className="search" name="q" defaultValue={term} placeholder="Search name, phone, email or boat" />
         <select name="status" defaultValue={status} className="search narrow">
           <option value="">All customers</option>
-          <option value="prospect">Prospects</option>
+          <option value="prospect">Prospects and leads</option>
           <option value="active">Active</option>
           <option value="pending">Pending sign-up</option>
           <option value="inactive">Inactive</option>
@@ -63,9 +64,9 @@ export default async function Customers({ searchParams }: { searchParams: SP }) 
               <strong>{c.name}</strong>
               <Badge tone={TONE[c.status] ?? "idle"}>{c.status === "pending" ? "Pending sign-up" : c.status}</Badge>
             </div>
-            <div className="muted small">{c.boats ?? (c.status === "prospect" ? c.phone || "No phone" : "No boats")}</div>
+            <div className="muted small">{c.boats ?? (isLeadStage(c.status) ? c.phone || "No phone" : "No boats")}</div>
             <div className="small">
-              {c.status === "prospect" ? "Prospect" : c.next_visit ? `Next visit ${fmtDay(c.next_visit)}` : "No upcoming visit"}
+              {isLeadStage(c.status) ? STAGE_LABEL[c.status] : c.next_visit ? `Next visit ${fmtDay(c.next_visit)}` : "No upcoming visit"}
               {c.open_issues ? ` · ${c.open_issues} open issue(s)` : ""}
             </div>
           </Link>

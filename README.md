@@ -11,6 +11,12 @@ Boat cleaning operations app with three roles, chosen on the start screen.
 
 Marina, dock and slip are required for boats in a slip. A gate is required when the marina has gates, unless the dock already has one.
 
+## Lead categories and list import
+
+People who are not customers sit in one of three categories: **Prospect** (details on file, no conversation), **Active lead** (in conversation) and **Do not contact**. Moving someone to **Customer** makes them an active customer and puts them on the manager's Needs attention until they have a cleaning plan. Sales people move leads one at a time or in bulk; only a manager can lift a do-not-contact. Do not contact blocks every channel, typed messages included, and excludes the person from group sends and the mailing-address export.
+
+`/sales/import` loads a spreadsheet saved as CSV, or rows pasted from one. Columns are matched to fields from their headings and can be corrected. Duplicates are found by phone or email (or name plus street address when there is neither) and are skipped or have only their blank details filled in. Customers and do-not-contact people are never changed. Every skipped row is listed with its reason. An import never grants permission to text.
+
 ## Customer notes
 
 Managers and sales people record what a customer tells them ("racing on the 21st", "family in town"), optionally with a date the boat must be clean by. Notes with a date appear on Needs attention 14 days ahead, with a plain statement of whether a cleaning is on the calendar in time and a link to schedule one. Notes are exportable.

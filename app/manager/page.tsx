@@ -5,6 +5,7 @@ import { q } from "@/lib/db";
 import { JOB_SELECT, locationText, type JobRow } from "@/lib/repo";
 import { requireManager } from "@/lib/session";
 import { coverage, notesDue } from "@/lib/notes";
+import { isLeadStage } from "@/lib/stages";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
@@ -41,12 +42,18 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
     `select (select count(*)::int from messages where direction = 'in' and read_at is null) as unread,
             (select count(*)::int from messages where status = 'pending_approval') as approval`,
   );
-  const due = (await notesDue(today, 14)).filter((n) => n.customer_status !== 'prospect');
+  const due = (await notesDue(today, 14)).filter((n) => !isLeadStage(n.customer_status));
   const [spot] = await q<{ n: number }>("select count(*)::int as n from spotted_boats where status = 'new'");
+  const newFromSales = await q<{ id: string; name: string; converted_by: string; converted_at: string }>(
+    `select c.id, c.name, c.converted_by, c.converted_at from customers c
+     where c.status = 'active' and c.converted_at is not null
+       and not exists (select 1 from plans p join boats b on b.id = p.boat_id where b.customer_id = c.id)
+     order by c.converted_at desc limit 20`,
+  );
   const t = Object.fromEntries(todayJobs.map((r) => [r.status, r.n]));
   const total = todayJobs.reduce((s, r) => s + r.n, 0);
   const nothing =
-    !urgent.length && !review.length && !resched.length && !unassigned.length && !signups.length && !requests[0].n && !photosMissing.length && !due.length;
+    !urgent.length && !review.length && !resched.length && !unassigned.length && !signups.length && !requests[0].n && !photosMissing.length && !due.length && !newFromSales.length;
 
   return (
     <>
@@ -60,6 +67,18 @@ export default async function NeedsAttention({ searchParams }: { searchParams: S
       <Notice ok={sp.ok} error={sp.error} />
 
       {nothing && <Empty>Nothing is waiting on you.</Empty>}
+
+      {newFromSales.length > 0 && (
+        <section className="attn warn">
+          <h2>New customers without a cleaning plan ({newFromSales.length})</h2>
+          {newFromSales.map((c) => (
+            <Link key={c.id} href={`/manager/customers/${c.id}`} className="attn-row">
+              <strong>{c.name}</strong>
+              <span className="muted"> · made a customer by {c.converted_by || "staff"} · {fmtDateTime(c.converted_at)}</span>
+            </Link>
+          ))}
+        </section>
+      )}
 
       {due.length > 0 && (
         <section className="attn warn">

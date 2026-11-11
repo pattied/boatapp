@@ -1,4 +1,5 @@
 import { q } from "./db";
+import { isLeadStage } from "./stages";
 
 // Customer notes: things a customer tells us that matter for service ("racing on the 21st", "family in town").
 // A note can carry a "boat must be clean by" date. Open notes with a date are checked against the schedule.
@@ -50,7 +51,7 @@ export type Coverage = { tone: "good" | "warn" | "bad"; text: string };
 // Plain-language answer to "will the boat be clean in time?"
 export function coverage(n: Note, today: string, fmt: (d: string) => string): Coverage | null {
   if (!n.needed_by || n.done_at) return null;
-  if (n.customer_status === "prospect") return { tone: "warn", text: `Wanted by ${fmt(n.needed_by)}. Not a customer yet.` };
+  if (isLeadStage(n.customer_status)) return { tone: "warn", text: `Wanted by ${fmt(n.needed_by)}. Not a customer yet.` };
   if (n.covering_visit) {
     const gap = Math.round((Date.parse(n.needed_by) - Date.parse(n.covering_visit)) / 86400000);
     if (gap > 7) return { tone: "warn", text: `Last cleaning before then is ${fmt(n.covering_visit)}, ${gap} days ahead. Consider one closer to ${fmt(n.needed_by)}.` };

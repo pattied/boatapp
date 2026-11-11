@@ -7,6 +7,7 @@ import { one, q } from "@/lib/db";
 import { field } from "@/lib/http";
 import { isUuid } from "@/lib/ids";
 import { requireSales } from "@/lib/session";
+import { isLeadStage } from "@/lib/stages";
 
 // Customer notes. Managers and sales people can both add and finish them.
 
@@ -25,7 +26,7 @@ export async function addNote(fd: FormData) {
   const boatId = field(fd, "boat_id");
   const target = isUuid(customerId) ? await one<{ status: string }>("select status from customers where id = $1", [customerId]) : null;
   if (!target) back(fd, "error", "Customer not found.");
-  if (!user.manager && target.status !== "prospect") back(fd, "error", "Only a manager can add notes to a customer.");
+  if (!user.manager && !isLeadStage(target.status)) back(fd, "error", "Only a manager can add notes to a customer.");
   if (!body) back(fd, "error", "Write the note first.");
   if (neededBy && !isDate(neededBy)) back(fd, "error", "That date is not valid.");
   const boat = isUuid(boatId) ? await one("select 1 from boats where id = $1 and customer_id = $2", [boatId, customerId]) : null;
@@ -44,7 +45,7 @@ export async function setNoteDone(fd: FormData) {
   const reopen = field(fd, "op", 10) === "reopen";
   if (!user.manager) {
     const n = await one<{ status: string }>("select c.status from customer_notes n join customers c on c.id = n.customer_id where n.id = $1", [id]);
-    if (n?.status !== "prospect") back(fd, "error", "Only a manager can change notes on a customer.");
+    if (!isLeadStage(n?.status)) back(fd, "error", "Only a manager can change notes on a customer.");
   }
   await q(
     reopen

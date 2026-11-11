@@ -23,6 +23,8 @@ export default async function SalesLayout({ children }: { children: React.ReactN
           <Link href="/sales/walk">Walk a dock</Link>
           <Link href="/sales/leads/new">New lead</Link>
           <Link href="/sales/leads">Leads</Link>
+          <Link href="/sales/import">Import a list</Link>
+          <Link href="/sales/marinas">Marinas</Link>
           {user.manager && <Link href="/manager">Manager</Link>}
         </nav>
       </header>

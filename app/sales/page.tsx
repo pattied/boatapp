@@ -5,6 +5,7 @@ import { q } from "@/lib/db";
 import { coverage, notesDue } from "@/lib/notes";
 import { SPOTTED_SELECT, SPOT_STATUS, type Spotted } from "@/lib/sales";
 import { requireSales } from "@/lib/session";
+import { isLeadStage } from "@/lib/stages";
 
 type SP = Promise<{ ok?: string; error?: string }>;
 
@@ -16,17 +17,17 @@ export default async function SalesHome({ searchParams }: { searchParams: SP }) 
     q<{ boats: number; fresh: number; leads: number }>(
       `select (select count(*)::int from spotted_boats) as boats,
               (select count(*)::int from spotted_boats where status = 'new') as fresh,
-              (select count(*)::int from customers where status = 'prospect') as leads`,
+              (select count(*)::int from customers where status in ('prospect', 'lead')) as leads`,
     ),
     q<Spotted>(`${SPOTTED_SELECT} order by s.spotted_at desc limit 8`),
     q<{ id: string; name: string; phone: string; interest: string; created_at: string; boats: string | null }>(
       `select c.id, c.name, c.phone, c.interest, c.created_at,
          (select string_agg(b.name, ', ') from boats b where b.customer_id = c.id) as boats
-       from customers c where c.status = 'prospect' order by c.created_at desc limit 8`,
+       from customers c where c.status in ('prospect', 'lead') order by c.created_at desc limit 8`,
     ),
     notesDue(today, 14),
   ]);
-  const leadNotes = due.filter((n) => n.customer_status === "prospect");
+  const leadNotes = due.filter((n) => isLeadStage(n.customer_status) && n.customer_status !== "dnc");
   const c = counts[0];
   return (
     <>
@@ -38,6 +39,10 @@ export default async function SalesHome({ searchParams }: { searchParams: SP }) 
       <div className="sales-actions">
         <Link href="/sales/walk" className="btn primary big-btn">Walk a dock</Link>
         <Link href="/sales/leads/new" className="btn big-btn">New lead (call or walk-up)</Link>
+        <div className="two">
+          <Link href="/sales/import" className="btn">Import a list</Link>
+          <Link href="/sales/marinas" className="btn">Add a marina</Link>
+        </div>
       </div>
 
       {leadNotes.length > 0 && (

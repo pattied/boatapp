@@ -2,6 +2,7 @@ import { csvFile } from "@/lib/csv";
 import { todayLA } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { managerSession } from "@/lib/session";
+import { LEAD_SQL } from "@/lib/stages";
 
 // Full exports for mailings and record keeping. Manager only.
 export async function GET(req: Request) {
@@ -13,9 +14,9 @@ export async function GET(req: Request) {
 
   if (what === "contacts") {
     const where =
-      who === "customers" ? "c.status <> 'prospect'" : who === "prospects" ? "c.status = 'prospect'" : who === "mailable" ? "c.address1 <> '' and c.postal_code <> ''" : "true";
+      who === "customers" ? `c.status not in ${LEAD_SQL}` : who === "prospects" ? `c.status in ${LEAD_SQL}` : who === "mailable" ? "c.address1 <> '' and c.postal_code <> '' and c.status <> 'dnc'" : "true";
     const rows = await q<Record<string, unknown>>(
-      `select case when c.status = 'prospect' then 'Prospect' else 'Customer' end as kind, c.status, c.name,
+      `select case c.status when 'prospect' then 'Prospect' when 'lead' then 'Active lead' when 'dnc' then 'Do not contact' else 'Customer' end as kind, c.status, c.status = 'dnc' as do_not_contact, c.list_name, c.name,
          c.first_name, c.last_name, c.phone, c.email, c.address1, c.address2, c.city, c.state, c.postal_code,
          c.contact_pref, c.sms_consent, c.consent_at, c.promo_sms_consent, c.promo_sms_consent_at,
          c.sms_opted_out_at is not null as sms_opted_out, c.email_opted_out_at is not null as email_unsubscribed,
@@ -23,10 +24,10 @@ export async function GET(req: Request) {
          (select string_agg(b.name, '; ' order by b.name) from boats b where b.customer_id = c.id and b.status <> 'sold') as boats,
          (select string_agg(distinct m.name, '; ') from boats b join marinas m on m.id = b.marina_id where b.customer_id = c.id and b.status <> 'sold') as marinas,
          (select string_agg(x.name || coalesce(' ' || nullif(x.phone, ''), '') || coalesce(' ' || nullif(x.email, ''), ''), '; ') from contacts x where x.customer_id = c.id) as other_contacts
-       from customers c where c.status <> 'declined' and ${where} order by c.status = 'prospect', c.last_name, c.first_name, c.name`,
+       from customers c where c.status <> 'declined' and ${where} order by c.status in ('prospect', 'lead', 'dnc'), c.last_name, c.first_name, c.name`,
     );
     return csvFile(`contacts-${who || "all"}-${day}.csv`, [
-      ["kind", "Type"], ["status", "Status"], ["first_name", "First name"], ["last_name", "Last name"], ["name", "Full name"], ["phone", "Phone"], ["email", "Email"],
+      ["kind", "Type"], ["status", "Status"], ["do_not_contact", "Do not contact"], ["list_name", "List"], ["first_name", "First name"], ["last_name", "Last name"], ["name", "Full name"], ["phone", "Phone"], ["email", "Email"],
       ["address1", "Address 1"], ["address2", "Address 2"], ["city", "City"], ["state", "State"], ["postal_code", "ZIP"],
       ["contact_pref", "Prefers"], ["sms_consent", "Agreed to service texts"], ["consent_at", "Service text consent date"],
       ["promo_sms_consent", "Agreed to marketing texts"], ["promo_sms_consent_at", "Marketing text consent date"],

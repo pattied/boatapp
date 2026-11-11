@@ -27,7 +27,7 @@ export default async function TemplateDetail({ params, searchParams }: Props) {
   const smsPreview = t.sms_body ? finishSms(render(t.sms_body, vars), { business: businessName, purpose: t.purpose, firstToNumber: false }) : "";
   const [marinas, counts] = await Promise.all([
     q<{ id: string; name: string }>("select id, name from marinas order by name"),
-    q<{ status: string; n: number }>("select status, count(*)::int as n from customers where status in ('active', 'paused', 'prospect') group by status"),
+    q<{ status: string; n: number }>("select status, count(*)::int as n from customers where status in ('active', 'paused', 'prospect', 'lead') group by status"),
   ]);
   const n = (s: string) => counts.find((c) => c.status === s)?.n ?? 0;
 
@@ -104,8 +104,9 @@ export default async function TemplateDetail({ params, searchParams }: Props) {
               <select name="audience" defaultValue="">
                 <option value="" disabled>Choose…</option>
                 <option value="active">Active customers ({n("active")})</option>
-                <option value="prospects">Prospects ({n("prospect")})</option>
-                <option value="all">Customers and prospects ({n("active") + n("paused") + n("prospect")})</option>
+                <option value="prospects">Prospects and active leads ({n("prospect") + n("lead")})</option>
+                <option value="leads">Active leads only ({n("lead")})</option>
+                <option value="all">Customers, prospects and leads ({n("active") + n("paused") + n("prospect") + n("lead")})</option>
                 <option value="marina">Customers at one marina</option>
               </select>
             </label>

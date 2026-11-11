@@ -688,3 +688,8 @@ code { background: #eef2f6; padding: 1px 5px; border-radius: 5px; font-size: 13p
 .note.done { opacity: 0.6; }
 .note-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .walk-form .linkish { color: var(--blue); }
+.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.lead-row input[type="checkbox"] { width: 22px; height: 22px; flex: none; }
+.lead-link { text-decoration: none; color: inherit; min-width: 0; }
+.bulk-bar { position: sticky; top: 92px; z-index: 5; }
+@media (max-width: 700px) { .bulk-bar { position: static; } }

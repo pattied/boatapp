@@ -6,6 +6,7 @@ import { fmtDateTime } from "@/lib/dates";
 import { q } from "@/lib/db";
 import { smsSegments } from "@/lib/messaging/templates";
 import { requireManager } from "@/lib/session";
+import { isLeadStage, STAGE_LABEL } from "@/lib/stages";
 
 type SP = Promise<{ ok?: string; error?: string; tab?: string }>;
 
@@ -80,7 +81,7 @@ export default async function Messages({ searchParams }: { searchParams: SP }) {
           {threads.map((t) => (
             <Link key={t.customer_id ?? "unknown"} href={`/manager/messages/${t.customer_id ?? "unknown"}`} className={`thread-row${t.unread ? " unread" : ""}`}>
               <div className="grow">
-                <strong>{t.name ?? "Unknown senders"}</strong> {t.status === "prospect" && <Badge tone="idle">prospect</Badge>}
+                <strong>{t.name ?? "Unknown senders"}</strong> {isLeadStage(t.status) && <Badge tone={t.status === "dnc" ? "bad" : "idle"}>{STAGE_LABEL[t.status].toLowerCase()}</Badge>}
                 <div className="muted small clip">{t.last_dir === "out" ? "You: " : ""}{t.last_body}</div>
               </div>
               <div className="thread-meta small muted">

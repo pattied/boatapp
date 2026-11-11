@@ -99,6 +99,7 @@ export async function canSend(
   opts: { manual?: boolean; postalAddress?: string } = {},
 ): Promise<Verdict> {
   if (c.status === "declined") return { ok: false, reason: "This sign-up was declined." };
+  if (c.status === "dnc") return { ok: false, reason: "Marked do not contact." };
   if (c.contact_pref === "none" && !opts.manual) return { ok: false, reason: "Customer asked for no messages." };
 
   if (channel === "sms") {

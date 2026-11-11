@@ -9,6 +9,8 @@ import { isUuid } from "@/lib/ids";
 import { notesFor } from "@/lib/notes";
 import { locationText } from "@/lib/repo";
 import { requireSales } from "@/lib/session";
+import { setStage } from "@/app/actions/stage";
+import { isLeadStage, MOVE_TARGETS, STAGE_HELP, STAGE_LABEL } from "@/lib/stages";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> };
 
@@ -24,7 +26,7 @@ export default async function Lead({ params, searchParams }: Props) {
     : null;
   if (!c) notFound();
   // Sales people work with leads. Once someone is a customer their record belongs to the manager's side.
-  if (c.status !== "prospect" && !user.manager) {
+  if (!isLeadStage(c.status) && !user.manager) {
     return (
       <>
         <header className="top"><h1>{c.name}</h1></header>
@@ -45,20 +47,36 @@ export default async function Lead({ params, searchParams }: Props) {
   return (
     <>
       <header className="top">
-        <div className="eyebrow">Lead</div>
+        <div className="eyebrow">{STAGE_LABEL[c.status] ?? "Lead"}</div>
         <h1>{c.name}</h1>
         <p className="muted small">{c.source} · added {fmtDateTime(c.created_at)}{c.interest ? ` · wants: ${c.interest}` : ""}</p>
       </header>
       <Notice ok={sp.ok} error={sp.error} />
       {user.manager && <Link href={`/manager/customers/${id}`} className="btn">Open in the manager view (convert, message, add a plan)</Link>}
       <div className="btn-row">
-        {c.phone && <a className="btn primary" href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>Call {c.phone}</a>}
-        {c.email && <a className="btn" href={`mailto:${c.email}`}>Email</a>}
+        {c.status !== "dnc" && c.phone && <a className="btn primary" href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>Call {c.phone}</a>}
+        {c.status !== "dnc" && c.email && <a className="btn" href={`mailto:${c.email}`}>Email</a>}
       </div>
       <div className="small">
         Texts about service: <Badge tone={c.sms_consent && !c.sms_opted_out_at ? "good" : "idle"}>{c.sms_opted_out_at ? "opted out" : c.sms_consent ? "agreed" : "no permission"}</Badge>{" "}
         Marketing texts: <Badge tone={c.promo_sms_consent && !c.sms_opted_out_at ? "good" : "idle"}>{c.promo_sms_consent && !c.sms_opted_out_at ? "agreed" : "no permission"}</Badge>
       </div>
+
+      {c.status === "dnc" && <p className="notice bad">Marked do not contact. No texts, email or mailings go to this person.{user.manager ? "" : " Only a manager can lift this."}</p>}
+      {isLeadStage(c.status) && (user.manager || c.status !== "dnc") && (
+        <form action={setStage} className="card row wrap">
+          <input type="hidden" name="ids" value={id} />
+          <input type="hidden" name="back" value={back} />
+          <label className="field">
+            <span>Category</span>
+            <select name="stage" defaultValue={c.status}>
+              {MOVE_TARGETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+          <button className="btn small-btn">Move</button>
+          <span className="muted small grow">{STAGE_HELP[c.status]}</span>
+        </form>
+      )}
 
       <NotesCard customerId={id} notes={notes} boats={boats} back={back} today={todayLA()} />
 
